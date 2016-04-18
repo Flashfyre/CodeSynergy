@@ -1,0 +1,130 @@
+﻿body {
+    padding-top: 50px;
+    padding-bottom: 20px;
+}
+
+/* Wrapping element */
+/* Set some basic padding to keep content from hitting the edges */
+.body-content {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.navbar {
+    z-index: 1051 !important;
+}
+
+.navbar-nav li a, .navbar-brand {
+    color: #004080 !important;
+    transition: all 0.2s ease-in;
+}
+
+.navbar-nav li a:hover, .navbar-brand:hover {
+    -webkit-stroke-width: 3px;
+    -webkit-stroke-color: #FFFFFF;
+    -webkit-fill-color: #FFFFFF;
+    -moz-stroke-width: 3px;
+    -moz-stroke-color: #FFFFFF;
+    -moz-fill-color: #FFFFFF;
+    text-shadow: 2px 0px 10px white;
+}
+
+.blue {
+    color: #004080;
+}
+
+.loading-container {
+    height: 100%;
+    display: table;
+    margin: auto;
+}
+
+.loading {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+#modal-container {
+    display: table;
+    height: 100%;
+    width: 100%;
+}
+
+#modal {
+    display: inline-block;
+    max-width: 640px;
+    max-height: 480px;
+    margin: 0 auto;
+    padding: 2em !important;
+    border-radius: 1em;
+    background: white;
+}
+
+#modal h2 {
+    display: inline;
+}
+
+/* Set widths on the form inputs since otherwise they're 100% wide */
+input,
+select,
+textarea {
+    max-width: 280px;
+}
+
+/* Carousel */
+.carousel-caption {
+    z-index: 10 !important;
+}
+
+.carousel-caption p {
+    font-size: 20px;
+    line-height: 1.4;
+}
+
+::-webkit-scrollbar {
+  width: 15px;
+  height: 15px;
+}
+
+::-webkit-scrollbar-button {
+  width: 0px;
+  height: 0px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #004080;
+  border: 0px solid #004080;
+  border-radius: 15px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0050a0;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #003060;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border: 0px solid #ffffff;
+  border-radius: 15px;
+}
+
+::-webkit-scrollbar-track:hover {
+  background: #f0f0f0;
+}
+
+::-webkit-scrollbar-track:active {
+  background: #f0f0f0;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@media (min-width: 768px) {
+    .carousel-caption {
+        z-index: 10 !important;
+    }
+}

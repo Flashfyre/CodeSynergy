@@ -1,0 +1,12 @@
+﻿@{
+    var pageName = Context.Request.Path.Value.Substring(Context.Request.Path.Value.LastIndexOf("/") + 1);
+    switch (pageName) {
+        case "Login":
+        case "Register":
+            Layout = "_LayoutModal";
+            break;
+        default:
+            Layout = "_Layout";
+            break;
+    }
+}
