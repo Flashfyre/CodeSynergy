@@ -1,6 +1,6 @@
 {
   "userSecretsId": "aspnet5-CodeSynergy-5bbe0913-3c72-491f-95b2-9470bcbeb10a",
-  "version": "1.0.0-*",
+  "version": "0.0.1-*",
   "compilationOptions": {
     "emitEntryPoint": true
   },
@@ -35,7 +35,11 @@
   },
 
   "frameworks": {
-    "dnx451": { },
+    "dnx451": {
+      "dependencies": {
+        "Octokit": "0.19.0"
+      }
+    },
     "dnxcore50": { }
   },
 
