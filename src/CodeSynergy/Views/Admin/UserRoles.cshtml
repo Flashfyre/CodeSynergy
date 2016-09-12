@@ -1,0 +1,171 @@
+﻿@using NonFactors.Mvc.Grid
+
+@{
+    ViewData["Title"] = "User Roles";
+}
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        var UserRoleSelectFilter = (function () {
+            function UserRoleSelectFilter() {
+            }
+
+            UserRoleSelectFilter.prototype = {
+                render: function (grid, popup, filter) {
+                    popup.html(
+                        '<div class="popup-arrow"></div>' +
+                        '<div class="popup-content">' +
+                            '<div class="first-filter popup-group">' +
+                                '<select class="mvc-grid-input">' +
+                                    '<option value="Member"' + (filter.first.val == "Member" ? 'selected' : '') + '>Member</option>"' +
+                                    '<option value="Moderator"' + (filter.first.val == "Moderator" ? 'selected' : '') + '>Moderator</option>"' +
+                                    @if (User.Identity.Name == "admin@codesynergy.com") {
+                                        @Html.Raw("'<option value=\"Administrator\"' + (filter.first.val == \"Administrator\" ? 'selected' : '') + '>Administrator</option>\"' +");
+                                    }
+                                '</select>' +
+                            '</div>' +
+                            '<div class="popup-button-group">' +
+                                '<button class="btn btn-success mvc-grid-apply" type="button">✔</button>' +
+                                '<button class="btn btn-danger mvc-grid-cancel" type="button">✘</button>' +
+                            '</div>' +
+                        '</div>'
+                    );
+                },
+                init: function (grid, column, popup) {
+                    this.bindValue(grid, column, popup);
+                    this.bindApply(grid, column, popup);
+                    this.bindCancel(grid, column, popup);
+                },
+                bindValue: function (grid, column, popup) {
+                    var inputs = popup.find('.mvc-grid-input');
+                    inputs.on('keyup.mvcgrid', function (e) {
+                        if (e.which == 13) {
+                            popup.find('.mvc-grid-apply').click();
+                        }
+                    });
+                },
+                bindApply: function (grid, column, popup) {
+                    var apply = popup.find('.mvc-grid-apply');
+                    apply.on('click.mvcgrid', function () {
+                        popup.removeClass('open');
+                        column.filter.first.type = 'Contains';
+                        column.filter.second.type = 'Contains';
+                        column.filter.operator = popup.find('.mvc-grid-operator').val();
+                        column.filter.first.val = popup.find('.first-filter .mvc-grid-input').val();
+                        column.filter.second.val = popup.find('.second-filter .mvc-grid-input').val();
+
+                        grid.applyFilter(grid, column);
+                        grid.reload(grid);
+                    });
+                },
+                bindCancel: function (grid, column, popup) {
+                    var cancel = popup.find('.mvc-grid-cancel');
+                    cancel.on('click.mvcgrid', function () {
+                        popup.removeClass('open');
+
+                        if (column.filter.first.type || column.filter.second.type) {
+                            grid.cancelFilter(grid, column);
+                            grid.reload(grid);
+                        }
+                    });
+                }
+            };
+
+            return UserRoleSelectFilter;
+        })();
+
+        $("#changeRoleBtn").click(function () {
+            $.ajax({
+                type: "POST",
+                url: 'Admin/ChangeUserRole',
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                data: {
+                    userId: $("#userId").val(),
+                    roleId: $("#changeRoleSelect").val(),
+                    __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+                },
+                dataType: "json",
+                success: function (data) {
+                    if (data[0] == 0) {
+                        $('#changeRoleSelect, #changeRoleBtn').attr('disabled', true);
+                        $('.mvc-grid').mvcgrid({
+                            reloadStarted: function (grid) {
+                                $("#userRoleGrid").css("opacity", 0.5);
+                            },
+                            reloadEnded: function (grid) {
+                                $("#userRoleGrid").css("opacity", null);
+                            },
+                            reload: true
+                        });
+                    } else if (data[1] != null) {
+                        alert(data[1]);
+                    }
+                },
+                error: function () { alert("Error: Something went wrong changing the user role"); }
+            });
+        });
+
+        $('.mvc-grid').mvcgrid({
+            filters: {
+                'UserRoleSelect': new UserRoleSelectFilter()
+            },
+            rowClicked: function (grid, row, data, e) {
+                if (!$(row).children("td:first-child").hasClass("mvc-grid-empty")) {
+                    $(row).siblings().removeClass('selected');
+                    $(row).toggleClass('selected');
+
+                    if ($(row).hasClass('selected')) {
+                        $("#userId").val(data["Id"]);
+                        if (data["Role"] == "Administrator") {
+                            @if (User.Identity.Name == "admin@codesynergy.com") {
+                                @Html.Raw("$('#changeRoleSelect, #changeRoleBtn').attr('disabled', null); $('#changeRoleSelect').val(data['Role']);");
+                            }
+                        } else {
+                            $('#changeRoleSelect, #changeRoleBtn').attr('disabled', null);
+                            $("#changeRoleSelect").val(data["Role"]);
+                        }
+                    } else {
+                        $("#userId").val("");
+                        $("#changeRoleSelect, #changeRoleBtn").attr("disabled", true);
+                    }
+                }
+            }
+        });
+    });
+</script>
+
+<table>
+    <tr>
+        <td>
+            <h2>@ViewData["Title"]</h2>
+            <h4>Manage User Roles</h4>
+            <hr />
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <div>
+                <section>
+                    @Html.AjaxGrid(Url.Action("UserRoleGrid", new { }))
+                </section>
+                <br />
+                <input id="userId" type="hidden" />
+                <select id="changeRoleSelect" class="form-control" style="float: left;" disabled>
+                    @if (User.Identity.Name == "admin@codesynergy.com")
+                    {
+                        <option value="Administrator">
+                            Administrator
+                        </option>
+                    }
+                    <option value="Moderator">
+                        Moderator
+                    </option>
+                    <option value="Member">
+                        Member
+                    </option>
+                </select>
+                <button id="changeRoleBtn" class="btn btn-primary" style="margin-left: 10px;" disabled>Change Role</button>
+            </div>
+        </td>
+    </tr>
+</table>

@@ -1,0 +1,16 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@model IEnumerable<Question>
+
+@(Html.Grid(Model).Named("questionGrid").Build(columns =>
+    {
+        columns.Add(model => model.QuestionPost.Score).Titled("Score");
+        //columns.Add(model => model.QuestionPost.Stars).Titled("Stars");
+        columns.Add(model => model.Posts.Count - 1).Titled("Answers");
+        columns.Add(model => model.ViewCount).Titled("Views");
+        columns.Add(model => model.Summary).Titled("Question");
+        columns.Add(model => model.PostDate).Titled("Last Activity");
+    })
+.Filterable()
+.Sortable()
+.Pageable())

@@ -1,16 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNet.Builder;
-using Microsoft.AspNet.Hosting;
-using Microsoft.AspNet.Identity.EntityFramework;
-using Microsoft.Data.Entity;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using CodeSynergy.Models;
 using CodeSynergy.Services;
+using NonFactors.Mvc.Grid;
+using Microsoft.EntityFrameworkCore;
+using CodeSynergy.Data;
+using CodeSynergy.Models.Repositories;
+using Microsoft.AspNetCore.Identity;
+using System;
 
 namespace CodeSynergy
 {
@@ -18,10 +19,9 @@ namespace CodeSynergy
     {
         public Startup(IHostingEnvironment env)
         {
-            // Set up configuration sources.
-
             var builder = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json")
+                .SetBasePath(env.ContentRootPath)
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true);
 
             if (env.IsDevelopment())
@@ -45,16 +45,50 @@ namespace CodeSynergy
             // Add framework services.
             services.AddApplicationInsightsTelemetry(Configuration);
 
-            services.AddEntityFramework()
-                .AddSqlServer()
-                .AddDbContext<ApplicationDbContext>(options =>
-                    options.UseSqlServer(Configuration["Data:DefaultConnection:ConnectionString"]));
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
 
-            services.AddIdentity<ApplicationUser, IdentityRole>()
-                .AddEntityFrameworkStores<ApplicationDbContext>()
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("Administration", policy => {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole("Administrator");
+                });
+                options.AddPolicy("Moderation", policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole("Moderator");
+                });
+                options.AddPolicy("Members", policy => {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole("Member");
+                });
+            });
+
+            services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, UserClaimsPrincipalFactory<ApplicationUser, IdentityRole<string>>>();
+
+            services.AddIdentity<ApplicationUser, IdentityRole<string>>(o =>
+                {
+                    o.Password.RequiredLength = 6;
+                    o.Password.RequireDigit = false;
+                    o.Password.RequireLowercase = false;
+                    o.Password.RequireNonAlphanumeric = false;
+                    o.Password.RequireUppercase = false;
+                })
+                .AddEntityFrameworkStores<ApplicationDbContext, string>()
+                .AddUserStore<UserStore<ApplicationUser, IdentityRole<string>, ApplicationDbContext, string>>()
+                .AddRoleStore<RoleStore<IdentityRole<string>, ApplicationDbContext, string>>()
                 .AddDefaultTokenProviders();
 
             services.AddMvc();
+            services.AddMvcGrid();
+            
+            services.AddScoped<IKeyValueRepository<ApplicationUser, string>, UserRepository>();
+            services.AddScoped<IRepository<Ban, int>, BanRepository>();
+            services.AddScoped<IRepository<UntrustedURLPattern, int>, UntrustedURLPatternRepository>();
+            services.AddScoped<IRepository<Question, int>, QuestionRepository>();
+            services.AddScoped<IRepository<Tag, int>, TagRepository>();
+            services.AddScoped<ApplicationDbContext, ApplicationDbContext>();
 
             // Add application services.
             services.AddTransient<IEmailSender, AuthMessageSender>();
@@ -71,28 +105,13 @@ namespace CodeSynergy
 
             if (env.IsDevelopment())
             {
-                app.UseBrowserLink();
                 app.UseDeveloperExceptionPage();
-                app.UseDatabaseErrorPage();
+                app.UseBrowserLink();
             }
             else
             {
                 app.UseExceptionHandler("/Home/Error");
-
-                // For more details on creating database during deployment see http://go.microsoft.com/fwlink/?LinkID=615859
-                try
-                {
-                    using (var serviceScope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>()
-                        .CreateScope())
-                    {
-                        serviceScope.ServiceProvider.GetService<ApplicationDbContext>()
-                             .Database.Migrate();
-                    }
-                }
-                catch { }
             }
-
-            app.UseIISPlatformHandler(options => options.AuthenticationDescriptions.Clear());
 
             app.UseApplicationInsightsExceptionTelemetry();
 
@@ -100,7 +119,9 @@ namespace CodeSynergy
 
             app.UseIdentity();
 
-            // To configure external authentication please see http://go.microsoft.com/fwlink/?LinkID=532715
+            //EnsureRoles(app, loggerFactory);
+
+            // Add external authentication middleware below. To configure them please see http://go.microsoft.com/fwlink/?LinkID=532715
 
             app.UseMvc(routes =>
             {
@@ -108,9 +129,46 @@ namespace CodeSynergy
                     name: "default",
                     template: "{controller=Home}/{action=Index}/{id?}");
             });
+
+            CodeSynergy.Models.SeedData.Initialize(app.ApplicationServices);
         }
 
-        // Entry point for the application.
-        public static void Main(string[] args) => WebApplication.Run<Startup>(args);
+        private async void EnsureRoles(IApplicationBuilder app, ILoggerFactory loggerFactory)
+        {
+            ILogger logger = loggerFactory.CreateLogger<Startup>();
+            RoleManager<IdentityRole<string>> roleManager = app.ApplicationServices.GetService<RoleManager<IdentityRole<string>>>();
+
+            string[] roleNames = { "Administrator", "Moderator", "Member" };
+
+            foreach (string roleName in roleNames)
+            {
+                bool roleExists = await roleManager.RoleExistsAsync(roleName);
+                if (!roleExists)
+                {
+                    logger.LogInformation(String.Format("!roleExists for roleName {0}", roleName));
+                    IdentityRole<string> identityRole = new IdentityRole<string>();
+                    identityRole.Id = roleName;
+                    identityRole.Name = roleName;
+                    IdentityResult identityResult = await roleManager.CreateAsync(identityRole);
+                    if (!identityResult.Succeeded)
+                    {
+                        logger.LogCritical(
+                            String.Format(
+                                "!identityResult.Succeeded after roleManager.CreateAsync(identityRole) for  identityRole with roleName {0}", roleName));
+                        foreach (var error in identityResult.Errors)
+                        {
+                            logger.LogCritical(
+                                String.Format(
+                                    "identityResult.Error.Description: {0}",
+                                    error.Description));
+                            logger.LogCritical(
+                                String.Format(
+                                    "identityResult.Error.Code: {0}",
+                                 error.Code));
+                        }
+                    }
+                }
+            }
+        }
     }
 }

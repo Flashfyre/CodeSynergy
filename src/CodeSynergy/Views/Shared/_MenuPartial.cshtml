@@ -1,0 +1,52 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Authorization
+@using CodeSynergy.Models
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject IAuthorizationService AuthorizationService
+
+
+@if (SignInManager.IsSignedIn(User))
+{
+    <div id="main-menu" style="visibility: hidden">
+        <ul>
+            @if (User.IsInRole("Administrator") || User.IsInRole("Moderator"))
+            {
+                <li class="main-menu-item">
+                    <a class="list-group-item blue hover-green" href="javascript:void(0)" aria-hidden="true" data-path="Admin/Moderation">
+                        <i class="fa fa-lg fa-wrench"></i><span>Moderation</span>
+                    </a>
+                </li>
+            }
+            <li class="main-menu-item">
+                <a class="list-group-item blue hover-green" href="javascript:void(0)" aria-hidden="true" data-path="Account/Settings">
+                    <i class="fa fa-lg fa-cog"></i><span>Settings</span>
+                </a>
+            </li>
+            <li class="main-menu-item">
+                <a class="list-group-item blue hover-green" href="starred_questions" aria-hidden="true">
+                    <i class="fa fa-lg fa-star"></i><span>Starred Questions</span>
+                </a>
+            </li>
+            <li class="main-menu-item">
+                <a class="list-group-item blue hover-green" href="javascript:void(0)" aria-hidden="true" data-path="Home/UserRankings">
+                    <i class="fa fa-lg fa-trophy"></i><span>User Rankings</span>
+                </a>
+            </li>
+            @if (User.IsInRole("Administrator"))
+            {
+                <li class="main-menu-item">
+                    <a class="list-group-item blue hover-green" href="javascript:void(0)" aria-hidden="true" data-path="Admin/UserRoles">
+                        <i class="fa fa-lg fa-user"></i><span>User Roles</span>
+                    </a>
+                </li>
+            }
+            <li class="main-menu-item">
+                <a id="logout-button" class="list-group-item blue hover-green" href="javascript:void(0)">
+                    <i class="fa fa-lg fa-sign-out" title="Sign Out"></i><span>Sign Out</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+}

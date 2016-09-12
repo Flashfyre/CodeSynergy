@@ -1,0 +1,358 @@
+﻿@using NonFactors.Mvc.Grid
+
+@{
+    ViewData["Title"] = "Moderation";
+}
+
+<script type="text/javascript">
+    var editPattern = false;
+
+    $(document).ready(function () {
+        $("#banBtn").click(function () {
+            $.ajax({
+                type: "POST",
+                url: 'Admin/BanUser',
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                data: {
+                    userDisplayName: $("#userDisplayName").val(),
+                    banTerm: $("#banTermSelect").val(),
+                    banReason: $("#banReason").val(),
+                    __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+                },
+                dataType: "json",
+                success: function (data) {
+                    if (data[0] == 0) {
+                        $('.mvc-grid').mvcgrid({
+                            reloadStarted: function (grid) {
+                                $("#userBanGrid").css("opacity", 0.5);
+                            },
+                            reloadEnded: function (grid) {
+                                $("#userBanGrid").css("opacity", null);
+                            },
+                            reload: true
+                        });
+                    } else {
+                        alert(data[1]);
+                    }
+                },
+                error: function () { alert("Error: Something went wrong while attempting to ban the user"); }
+            });
+        });
+
+        $("#banTermBtn").click(function () {
+            $.ajax({
+                type: "POST",
+                url: 'Admin/ChangeBanTerm',
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                data: {
+                    banID: $("#banID").val(),
+                    banTerm: $("#banTermSelect2").val(),
+                    __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+                },
+                dataType: "json",
+                success: function (data) {
+                    if (data[0] == 0) {
+                        $('.mvc-grid').mvcgrid({
+                            reloadStarted: function (grid) {
+                                $("#userBanGrid").css("opacity", 0.5);
+                            },
+                            reloadEnded: function (grid) {
+                                $("#userBanGrid").css("opacity", null);
+                            },
+                            reload: true
+                        });
+                    } else {
+                        alert(data[1]);
+                    }
+                },
+                error: function () { alert("Error: Something went wrong while attempting to change the ban term"); }
+            });
+        });
+
+        $("#liftBanBtn").click(function () {
+            $.ajax({
+                type: "POST",
+                url: 'Admin/LiftBan',
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                data: {
+                    banID: $("#banID").val(),
+                    __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+                },
+                dataType: "json",
+                success: function (data) {
+                    if (data[0] == 0) {
+                        $('.mvc-grid').mvcgrid({
+                            reloadStarted: function (grid) {
+                                $("#userBanGrid").css("opacity", 0.5);
+                            },
+                            reloadEnded: function (grid) {
+                                $("#userBanGrid").css("opacity", null);
+                            },
+                            reload: true
+                        });
+                    } else {
+                        alert(data[1]);
+                    }
+                },
+                error: function () { alert("Error: Something went wrong while attempting to lift the ban"); }
+            });
+        });
+
+        $("#patternText").keyup(function () {
+            $("#addPatternBtn").attr("disabled", editPattern || $(this).val() == "" ? true : null);
+            $("#savePatternBtn, #cancelPatternBtn").attr("disabled", !editPattern || $(this).val() == "" ? true : null);
+        });
+
+        $("#addPatternBtn").click(function () {
+            $.ajax({
+                type: "POST",
+                url: 'Admin/AddUntrustedURLPattern',
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                data: {
+                    patternText: $("#patternText").val(),
+                    __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+                },
+                dataType: "json",
+                success: function (data) {
+                    if (data[0] == 0) {
+                        $('.mvc-grid').mvcgrid({
+                            reloadStarted: function (grid) {
+                                $("#untrustedURLPatternGrid").css("opacity", 0.5);
+                            },
+                            reloadEnded: function (grid) {
+                                $("##untrustedURLPatternGrid").css("opacity", null);
+                            },
+                            reload: true
+                        });
+                    } else if (data[1] != null) {
+                        alert(data[1]);
+                    }
+                },
+                error: function () { alert("Error: Something went wrong while attempting to add the untrusted URL pattern"); }
+            });
+        });
+
+        $("#editPatternBtn").click(function () {
+            togglePatternEdit(true);
+        });
+
+        $("#savePatternBtn").click(function () {
+            $.ajax({
+                type: "POST",
+                url: 'Admin/UpdateUntrustedURLPattern',
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                data: {
+                    patternID: $("#patternID").val(),
+                    patternText: $("#patternText").val(),
+                    __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+                },
+                dataType: "json",
+                success: function (data) {
+                    if (data[0] == 0) {
+                        $('.mvc-grid').mvcgrid({
+                            reloadStarted: function (grid) {
+                                $("#untrustedURLPatternGrid").css("opacity", 0.5);
+                            },
+                            reloadEnded: function (grid) {
+                                $("##untrustedURLPatternGrid").css("opacity", null);
+                            },
+                            reload: true
+                        });
+                    } else if (data[1] != null) {
+                        alert(data[1]);
+                    }
+                    togglePatternEdit(false);
+                },
+                error: function () { alert("Error: Something went wrong while attempting to modify the untrusted URL pattern"); togglePatternEdit(false); }
+            });
+        });
+
+        $("#cancelPatternBtn").click(function () {
+            togglePatternEdit(false);
+        });
+
+        $("#deletePatternBtn").click(function () {
+            $.ajax({
+                type: "POST",
+                url: 'Admin/DeleteUntrustedURLPattern',
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                data: {
+                    patternID: $("#patternID").val(),
+                    __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+                },
+                dataType: "json",
+                success: function (data) {
+                    if (data[0] == 0) {
+                        $('.mvc-grid').mvcgrid({
+                            reloadStarted: function (grid) {
+                                $("#untrustedURLPatternGrid").css("opacity", 0.5);
+                            },
+                            reloadEnded: function (grid) {
+                                $("##untrustedURLPatternGrid").css("opacity", null);
+                            },
+                            reload: true
+                        });
+                    } else if (data[1] != null) {
+                        alert(data[1]);
+                    }
+                },
+                error: function () { alert("Error: Something went wrong while attempting to delete the untrusted URL pattern"); }
+            });
+        });
+
+        $('.mvc-grid').mvcgrid({
+            rowClicked: function (grid, row, data, e) {
+                if (!$(row).children("td:first-child").hasClass("mvc-grid-empty")) {
+                    $(row).siblings().removeClass('selected');
+                    $(row).toggleClass('selected');
+
+                    if ($(grid).is("#banUserGrid")) {
+                        if ($(row).hasClass('selected')) {
+                            $("#banID").val(data["BanID"]);
+                            if (data["BannedUserRole"] == "Administrator") {
+                                @if (User.Identity.Name == "admin@codesynergy.com") {
+                                    @Html.Raw("$('.ban-controls button, .ban-controls select').attr('disabled', null); $('#banTermSelect2').val(data['BanTerm']);");
+                                }
+                            } else {
+                                $('.ban-controls button, .ban-controls select').attr('disabled', null);
+                                $("#banTermSelect2").val($("#banTermSelect option:contains(" + data["BanTerm"] + ")").index());
+                            }
+                        } else {
+                            $("#banID").val("");
+                            $('.ban-controls button, .ban-controls select').attr("disabled", true);
+                        }
+                    } else {
+                        if (editPattern) {
+                            $("#patternText").val(data["PatternText"]);
+                        }
+                        if ($(row).hasClass('selected')) {
+                            $("#patternID").val(data["PatternID"]);
+                            if (data["AddedByUserRole"] == "Administrator") {
+                                @if (User.Identity.Name == "admin@codesynergy.com") {
+                                    @Html.Raw("$('#editPatternBtn, #deletePatternBtn').attr('disabled', editPattern ? true : null);");
+                                }
+                            } else {
+                                $('#editPatternBtn, #deletePatternBtn').attr('disabled',　editPattern ? true : null);
+                            }
+                        } else {
+                            $("#patternID").val("");
+                            $("#editPatternBtn").attr("disabled", true);
+                        }
+                    }
+                }
+            }
+        });
+    });
+
+    function togglePatternEdit(enable) {
+        editPattern = enable;
+        if ($(".table > tbody > tr.selected").length == 1) {
+            $("#patternText").val($(".table > tbody > tr.selected > td:nth-child(5)").html());
+            $("#editPatternBtn, #deletePatternBtn").attr("disabled", enable ? true : null);
+        } else {
+            $("#editPatternBtn, #deletePatternBtn").attr("disabled", true);
+        }
+        
+        $("#savePatternBtn, #cancelPatternBtn").attr("disabled", enable ? null : true);
+        $("#addPatternBtn").attr("disabled", enable ? true : null);
+    }
+</script>
+
+<table>
+    <tr>
+        <td>
+            <h2>@ViewData["Title"]</h2>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <div>
+                <h4>Active Bans</h4>
+                <hr />
+                <div class="col-xs-4">
+                    <input type="text" id="userDisplayName" name="userDisplayName" class="form-control" placeholder="Enter a display name" maxlength="20" />
+                </div>
+                <div class="col-xs-2">
+                    <select id="banTermSelect" name="banTermSelect" class="form-control">
+                        @foreach (EnumBanTerm b in ViewBag.BanTerms)
+                        {
+                            <option value="@((Int16)b)">
+                                @b.DisplayName()
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-xs-4">
+                    <textarea id="banReason" class="form-control" placeholder="Enter a ban reason" maxlength="255"></textarea>
+                </div>
+                <div class="col-xs-2">
+                    <button id="banBtn" class="btn btn-primary btn-block">Ban</button>
+                </div>
+                @Html.AntiForgeryToken()
+                <br />
+                <br />
+                <br />
+                <section>
+                    @Html.AjaxGrid(Url.Action("UserBanGrid", new { }))
+                </section>
+                <br />
+                <div class="ban-controls">
+                    <input id="banID" type="hidden" />
+                    <div class="col-xs-4">
+                        <button id="banTermBtn" class="btn btn-primary btn-block" disabled>Change Ban Term</button>
+                    </div>
+                    <div class="col-xs-2">
+                        <select id="banTermSelect2" class="form-control" disabled>
+                            @foreach (EnumBanTerm b in ViewBag.BanTerms)
+                            {
+                                <option value="@((Int16) b)">
+                                    @b.DisplayName()
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-xs-4">
+                    </div>
+                    <div class="col-xs-2">
+                        <button id="liftBanBtn" class="btn btn-primary btn-block" disabled>Lift Ban</button>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <br />
+            <br />
+            <div>
+                <h4>Untrusted URL Patterns</h4>
+                <hr />
+                <div class="col-xs-8">
+                    <section>
+                        @Html.AjaxGrid(Url.Action("UntrustedURLPatternGrid", new { }))
+                    </section>
+                </div>
+                <input id="patternID" type="hidden" />
+                <div class="col-xs-1">
+                    <button id="addPatternBtn" class="btn btn-primary btn-block" disabled>Add</button>
+                </div>
+                <div class="col-xs-3">
+                    <input id="patternText" type="text" class="form-control" placeholder="Enter a Regular Expression" style="margin-bottom: 25px;" />
+                </div>
+                <div class="col-xs-1">
+                    <button id="editPatternBtn" class="btn btn-primary btn-block" disabled>Edit</button>
+                    <button id="deletePatternBtn" class="btn btn-danger btn-block" disabled>Delete</button>
+                </div>
+                <div class="col-xs-1">
+                    <button id="cancelPatternBtn" class="btn btn-primary btn-block" disabled>Cancel</button>
+                </div>
+                <div class="col-xs-2">
+                    <button id="savePatternBtn" class="btn btn-success btn-block" disabled>Save Changes</button>
+                </div>
+            </div>
+        </td>
+    </tr>
+</table>

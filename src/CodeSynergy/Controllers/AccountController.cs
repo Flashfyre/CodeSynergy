@@ -3,15 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Microsoft.AspNet.Authorization;
-using Microsoft.AspNet.Identity;
-using Microsoft.AspNet.Mvc;
-using Microsoft.AspNet.Mvc.Rendering;
-using Microsoft.Data.Entity;
-using Microsoft.Extensions.Logging;
 using CodeSynergy.Models;
 using CodeSynergy.Services;
-using CodeSynergy.ViewModels.Account;
+using CodeSynergy.Models.AccountViewModels;
+using CodeSynergy.Data;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using CodeSynergy.Models.Repositories;
 
 namespace CodeSynergy.Controllers
 {
@@ -38,6 +40,20 @@ namespace CodeSynergy.Controllers
             _logger = loggerFactory.CreateLogger<AccountController>();
         }
 
+        /*public bool IsAuthorized(int clearance, string returnUrl)
+        {
+            using (var context = new ApplicationDbContext())
+            {
+                if (context.UserRoles.Single(x => x.RoleId) == ")
+                {
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
+        }*/
+
         //
         // GET: /Account/Login
         [HttpGet]
@@ -60,9 +76,20 @@ namespace CodeSynergy.Controllers
             {
                 // This doesn't count login failures towards account lockout
                 // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-                var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, lockoutOnFailure: false);
+                var result = await _signInManager.PasswordSignInAsync(model.Email.ToLower(), model.Password, model.RememberMe, lockoutOnFailure: false);
                 if (result.Succeeded)
                 {
+                    using (ApplicationDbContext context = new ApplicationDbContext())
+                    {
+                        Ban activeBan = context.Bans.SingleOrDefault(b => b.BannedUser.UserName == model.Email && b.Active);
+                        if (activeBan != null)
+                        {
+                            ModelState.AddModelError(string.Empty, "You may not sign into this account as it is " + (activeBan.BanTerm != (int) EnumBanTerm.Perm ? "banned until " + String.Format("{0:f}", activeBan.BanLiftDate) : "permanently banned")
+                                + " (Reason for ban: " + activeBan.BanReason + ")");
+                            await _signInManager.SignOutAsync();
+                            return View(model);
+                        }
+                    }
                     _logger.LogInformation(1, "User logged in.");
                     return RedirectToLocal(returnUrl);
                 }
@@ -92,7 +119,29 @@ namespace CodeSynergy.Controllers
         [AllowAnonymous]
         public IActionResult Register()
         {
+            ViewBag.Countries = GetCountries();
             return View();
+        }
+
+        public List<Country> GetCountries()
+        {
+            using (var context = new ApplicationDbContext())
+            {
+                return context.Countries.ToList();
+            }
+        }
+
+        //
+        // POST: /Account/GetRegions
+        [HttpPost]
+        [AllowAnonymous]
+        public JsonResult GetRegions(String CountryID)
+        {
+            using (var context = new ApplicationDbContext())
+            {
+                string[][] regionData = context.Regions.Where(x => x.ISO == CountryID).Select(x => new string[] { x.RegionID, x.RegionName }).ToArray();
+                return Json(regionData);
+            }
         }
 
         //
@@ -104,16 +153,18 @@ namespace CodeSynergy.Controllers
         {
             if (ModelState.IsValid)
             {
-                var user = new ApplicationUser { UserName = model.Email, Email = model.Email };
+                var user = new ApplicationUser() {
+                    UserName = model.Email.ToLower(), Email = model.Email.ToLower(), DisplayName = model.DisplayName, FirstName = model.FirstName, LastName = model.LastName, JobTitle = model.JobTitle, BirthDate = model.BirthDate,
+                    Gender = model.Gender, CountryID = model.CountryID, RegionID = model.RegionID, City = model.City, GitHubID = model.GitHubID, ProfileGitHub = model.ProfileGitHub, ProfileMessage = null, RegistrationDate = DateTime.Now,
+                    LastActivityDate = DateTime.Now, QuestionsPosted = 0, AnswersPosted = 0, CommentsPosted = 0, ProfileViewCount = 0, Reputation = 0, Status = 1 
+                };
                 var result = await _userManager.CreateAsync(user, model.Password);
                 if (result.Succeeded)
                 {
-                    // For more information on how to enable account confirmation and password reset please visit http://go.microsoft.com/fwlink/?LinkID=532713
-                    // Send an email with this link
-                    //var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-                    //var callbackUrl = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, code = code }, protocol: HttpContext.Request.Scheme);
-                    //await _emailSender.SendEmailAsync(model.Email, "Confirm your account",
-                    //    "Please confirm your account by clicking this link: <a href=\"" + callbackUrl + "\">link</a>");
+                    if (user.Email == "admin@codesynergy.com")
+                    {
+                        await _userManager.AddToRoleAsync(user, "Administrator");
+                    }
                     await _signInManager.SignInAsync(user, isPersistent: false);
                     _logger.LogInformation(3, "User created a new account with password.");
                     return RedirectToAction(nameof(HomeController.Index), "Home");
@@ -153,8 +204,13 @@ namespace CodeSynergy.Controllers
         // GET: /Account/ExternalLoginCallback
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> ExternalLoginCallback(string returnUrl = null)
+        public async Task<IActionResult> ExternalLoginCallback(string returnUrl = null, string remoteError = null)
         {
+            if (remoteError != null)
+            {
+                ModelState.AddModelError(string.Empty, $"Error from external provider: {remoteError}");
+                return View(nameof(Login));
+            }
             var info = await _signInManager.GetExternalLoginInfoAsync();
             if (info == null)
             {
@@ -181,7 +237,7 @@ namespace CodeSynergy.Controllers
                 // If the user does not have an account, then ask the user to create an account.
                 ViewData["ReturnUrl"] = returnUrl;
                 ViewData["LoginProvider"] = info.LoginProvider;
-                var email = info.ExternalPrincipal.FindFirstValue(ClaimTypes.Email);
+                var email = info.Principal.FindFirstValue(ClaimTypes.Email);
                 return View("ExternalLoginConfirmation", new ExternalLoginConfirmationViewModel { Email = email });
             }
         }
@@ -193,11 +249,6 @@ namespace CodeSynergy.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ExternalLoginConfirmation(ExternalLoginConfirmationViewModel model, string returnUrl = null)
         {
-            if (User.IsSignedIn())
-            {
-                return RedirectToAction(nameof(ManageController.Index), "Manage");
-            }
-
             if (ModelState.IsValid)
             {
                 // Get the information about the user from the external login provider
@@ -206,7 +257,7 @@ namespace CodeSynergy.Controllers
                 {
                     return View("ExternalLoginFailure");
                 }
-                var user = new ApplicationUser { UserName = model.Email, Email = model.Email };
+                var user = new ApplicationUser() { UserName = model.Email, Email = model.Email };
                 var result = await _userManager.CreateAsync(user);
                 if (result.Succeeded)
                 {
@@ -388,6 +439,7 @@ namespace CodeSynergy.Controllers
             return RedirectToAction(nameof(VerifyCode), new { Provider = model.SelectedProvider, ReturnUrl = model.ReturnUrl, RememberMe = model.RememberMe });
         }
 
+
         //
         // GET: /Account/VerifyCode
         [HttpGet]
@@ -430,7 +482,7 @@ namespace CodeSynergy.Controllers
             }
             else
             {
-                ModelState.AddModelError("", "Invalid code.");
+                ModelState.AddModelError(string.Empty, "Invalid code.");
                 return View(model);
             }
         }
@@ -445,9 +497,9 @@ namespace CodeSynergy.Controllers
             }
         }
 
-        private async Task<ApplicationUser> GetCurrentUserAsync()
+        private Task<ApplicationUser> GetCurrentUserAsync()
         {
-            return await _userManager.FindByIdAsync(HttpContext.User.GetUserId());
+            return _userManager.GetUserAsync(HttpContext.User);
         }
 
         private IActionResult RedirectToLocal(string returnUrl)

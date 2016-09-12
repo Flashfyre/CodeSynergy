@@ -1,0 +1,31 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using CodeSynergy.Models
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+
+@if (SignInManager.IsSignedIn(User))
+{
+    <form asp-controller="Account" asp-action="LogOff" method="post" id="logout-form" class="navbar-right">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <img src="" width=32 height=32 />
+            </li>
+            <li>
+                <a id="menu-button" class="navbar-link blue hover-green" href="javascript:void(0)" title="Main Menu">
+                    <i class="fa fa-bars fa-3x"></i>
+                </a>
+            </li>
+        </ul>
+    </form>
+}
+else
+{
+    <ul class="nav navbar-nav navbar-right">
+        <li>
+            <a id="login-button" class="navbar-link blue hover-green" href="javascript:void(0)" aria-hidden="true" title="Sign In">
+                <i class="fa fa-sign-in fa-3x"></i>
+            </a>
+        </li>
+    </ul>
+}

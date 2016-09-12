@@ -1,8 +1,11 @@
 ﻿@{
-    var pageName = Context.Request.Path.Value.Substring(Context.Request.Path.Value.LastIndexOf("/") + 1);
+    var pageName = ViewContext.HttpContext.Request.Path.Value.Substring(ViewContext.HttpContext.Request.Path.Value.LastIndexOf("/") + 1);
     switch (pageName) {
         case "Login":
         case "Register":
+        case "Moderation":
+        case "UserRoles":
+        case "Timeout":
             Layout = "_LayoutModal";
             break;
         default:

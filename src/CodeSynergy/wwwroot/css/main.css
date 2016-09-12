@@ -1,6 +1,13 @@
 ﻿body {
     padding-top: 50px;
     padding-bottom: 20px;
+    overflow-y: hidden;
+}
+
+#main {
+    width: 100%;
+    margin-top: 11px;
+    overflow-y: scroll;
 }
 
 /* Wrapping element */
@@ -10,38 +17,162 @@
     padding-right: 10px;
 }
 
+.table tr.selected {
+    background-color: #008040;
+    color: white;
+}
+
+.table > tbody > tr:nth-child(even):not(.selected) {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.table > tbody > tr:not(.selected):hover {
+    background-color: rgba(0, 128, 64, 0.25);
+}
+
+.table > thead > tr > th {
+    border-bottom: 1px solid #eee;
+}
+
+.left {
+    float: left;
+}
+
+.center {
+    text-align: center;
+}
+
 .navbar {
-    z-index: 1051 !important;
+    padding: 5px 0;
+    z-index: 1052 !important;
+}
+
+.navbar-brand {
+    padding-top: 1px;
+    padding-bottom: 1px;
+}
+
+.navbar-brand img {
+    max-height: 48px;
 }
 
 .navbar-nav li a, .navbar-brand {
     color: #004080 !important;
-    transition: all 0.2s ease-in;
+}
+
+.navbar-nav li a.navbar-link {
+    padding: 4px 10px;
+}
+
+.navbar-nav li a:hover, .navbar-brand:hover {
+    color: #008040 !important;
 }
 
 .navbar-nav li a:hover, .navbar-brand:hover {
     -webkit-stroke-width: 3px;
-    -webkit-stroke-color: #FFFFFF;
-    -webkit-fill-color: #FFFFFF;
+    -webkit-stroke-color: #008040;
+    -webkit-fill-color: #008040;
     -moz-stroke-width: 3px;
-    -moz-stroke-color: #FFFFFF;
-    -moz-fill-color: #FFFFFF;
-    text-shadow: 2px 0px 10px white;
+    -moz-stroke-color: #008040;
+    -moz-fill-color: #008040;
+    text-shadow: 1px 0px 3px rgba(0, 128, 64, 0.25);
+}
+
+.hover-green {
+    transition: all 0.2s ease-in;
+}
+
+.hover-green:hover {
+    color: #008040;
 }
 
 .blue {
     color: #004080;
 }
 
+.blue.list-group-item {
+    color: #004080 !important;
+}
+
+.hover-green.list-group-item:hover {
+    color: #008040 !important;
+}
+
+.btn.btn-primary,.btn.btn-primary:disabled {
+    color: #ffffff;
+    background-color: #004080;
+    transition: all 0.2s ease-in;
+}
+
+.btn.btn-primary:hover:not(:disabled) {
+    background-color: #008040;
+    -webkit-stroke-width: 3px;
+    -webkit-stroke-color: #008040;
+    -webkit-fill-color: #008040;
+    -moz-stroke-width: 3px;
+    -moz-stroke-color: #008040;
+    -moz-fill-color: #008040;
+}
+
+.main-menu-item span {
+    padding-left: 0.5em;
+    font-size: 16px;
+}
+
+.main-menu-item .fa {
+    float: left;
+    margin-top: 4px;
+}
+
+.main-menu-item .list-group-item {
+    padding: 10px 15px 10px 10px;
+}
+
+#main-menu {
+    z-index: 1051;
+    position: fixed;
+    transition: all 0.35s ease-out;
+    margin-left: 20px;
+}
+
+#main-menu.on {
+    margin-top: 0;
+}
+
+#main-menu ul {
+    border: 5px ridge #ddd;
+    padding-left: 0;
+    background-color: #ddd;
+}
+
+@media (max-width: 768px) {
+  #main-menu {
+    width: 100% !important;
+    left: 0;
+    position: absolute;
+  }
+}
+
+@media (max-width: 992px) {
+  #main-menu {
+    width: inherit;
+  }
+}
+
+.main-menu-item {
+    list-style-type: none;
+    text-align: center;
+}
+
 .loading-container {
     height: 100%;
-    display: table;
-    margin: auto;
+    width: 100%;
+    display: flex;
+    pointer-events: none;
 }
 
 .loading {
-    display: table-cell;
-    vertical-align: middle;
+    margin: auto;
 }
 
 #modal-container {
@@ -52,16 +183,67 @@
 
 #modal {
     display: inline-block;
-    max-width: 640px;
-    max-height: 480px;
+    max-width: 80%;
+    max-height: 80%;
     margin: 0 auto;
     padding: 2em !important;
     border-radius: 1em;
     background: white;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+#modal.in {
+    pointer-events: all;
 }
 
 #modal h2 {
     display: inline;
+}
+
+#modal table {
+    width: 100%;
+}
+
+#modal table tr:nth-child(2) td {
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+#modal form {
+    height: inherit;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+#modal .form-group > .col-md-offset-2.col-md-10 > .checkbox > input {
+    margin-left: 0;
+}
+
+
+.close-modal:hover {
+    cursor:pointer;
+}
+
+.dataTableContainer {
+    border: 5px ridge #ddd;
+}
+
+.dataTable tr:nth-child(odd) {
+    background-color: #f8f8f8;
+}
+
+.dataTable tr:first-child {
+    background-color: #eee;
+}
+
+.dataTable th {
+    color: #004080;
+}
+
+.dataTable td, .dataTable th {
+    border: 1px ridge #ddd;
+    padding: 5px;
 }
 
 /* Set widths on the form inputs since otherwise they're 100% wide */
@@ -71,6 +253,56 @@ textarea {
     max-width: 280px;
 }
 
+.tag {
+    display: flex;
+    float: left;
+    border: 3px groove #0050a0;
+    padding: 9px 5px 7px 10px;
+    border-radius: 5px;
+    margin: 5px;
+    color: #ffffff;
+    background-color: #004080;
+    white-space: nowrap;
+    cursor: default;
+    z-index: 1;
+}
+
+.tag.tag-new {
+    border-color: #e7e7e7;
+    background-color: #ffffff;
+    color: #000000;
+}
+
+.tag a {
+    text-align: right;
+    float: right;
+    margin-top: -12px;
+    color: #ffffff;
+}
+
+.tag.tag-new a {
+    color: #004080;
+}
+
+.tag a:hover {
+    text-decoration: none;
+    color: #008040;
+}
+
+i.mce-i-[icon-github]:before {
+    content: "\f166";
+    font-family: FontAwesome;
+    font-style: normal;
+    font-weight: normal;
+    text-decoration: inherit;
+    color: #000;
+    font-size: 1.5em;
+    padding-right: 0.5em;
+    position: absolute;
+    top: 15%;
+    left: 0;
+ }
+
 /* Carousel */
 .carousel-caption {
     z-index: 10 !important;
@@ -79,6 +311,19 @@ textarea {
 .carousel-caption p {
     font-size: 20px;
     line-height: 1.4;
+}
+
+.questions-table {
+    width: 100%;
+}
+
+.questions-table th {
+    text-align: center;
+}
+
+.recent-activity > ul {
+    list-style-type: none;
+    padding-left: 0;
 }
 
 ::-webkit-scrollbar {
@@ -93,16 +338,19 @@ textarea {
 
 ::-webkit-scrollbar-thumb {
   background: #004080;
-  border: 0px solid #004080;
+  border: 3px groove #0050a0;
   border-radius: 15px;
+
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #0050a0;
+  border: 3px groove #0060c0;
 }
 
 ::-webkit-scrollbar-thumb:active {
   background: #003060;
+  border: 3px groove #004080;
 }
 
 ::-webkit-scrollbar-track {

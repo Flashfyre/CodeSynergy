@@ -1,0 +1,15 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@model IEnumerable<ApplicationUser>
+
+@(Html.Grid(Model).Named("userRoleGrid").Build(columns =>
+    {
+        columns.Add(model => model.Id).Titled("Hidden ID").Css("hidden");
+        columns.Add(model => model.UserName).Titled("User ID");
+        columns.Add(model => model.DisplayName).Titled("Display Name");
+        columns.Add(model => model.Role).Titled("User Role").FilteredAs("UserRoleSelect");
+        columns.Add(model => model.RegistrationDate).Titled("Registration Date").Filterable(false);
+    })
+.Filterable()
+.Sortable()
+.Pageable())
