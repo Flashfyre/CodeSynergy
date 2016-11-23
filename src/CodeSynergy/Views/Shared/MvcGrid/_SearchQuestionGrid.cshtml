@@ -1,0 +1,31 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@inject UserManager UserManager
+
+@model IEnumerable<SearchResult<Question>>
+
+@{
+    const string gridName = "searchQuestionGrid";
+    int rowsPerPage = (int) ViewBag.RowsPerPage;
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+}
+
+@(Html.Grid(Model).Named(gridName).Build(columns =>
+{
+    if (Model.Any() && Model.ElementAt(0).Query != null)
+        columns.Add(model => model.Occurences).Titled("Occurrences").Encoded(false).RenderedAs(model => "<h2 class='occurrence-count'>" + model.Occurences + "</h2>").Css("center").InitialSort(GridSortOrder.Desc);
+    columns.Add(model => model.Object.QuestionID).Titled("Hidden ID").Css("hidden");
+    columns.Add(model => model.Object.QuestionPost.Score).Titled("Score").Encoded(false).RenderedAs(model => "<h2 class='score'>" + model.Object.QuestionPost.Score + "</h2>").Css("center");
+    columns.Add(model => model.Object.Stars.Count).Titled("Stars").Encoded(false).RenderedAs(model => "<h2 class='star-count'>" + model.Object.Stars.Count + "</h2>").Css("center");
+    columns.Add(model => model.Object.AnswerCount).Titled("Answers").Encoded(false).RenderedAs(model => "<h2 class='answer-count'>" + model.Object.AnswerCount + "</h2>").Css("center");
+    columns.Add(model => model.Object.ViewCount).Titled("Views").Encoded(false).RenderedAs(model => "<h4 class='view-count'>" + model.Object.ViewCount + "</h4>").Css("center");
+    columns.Add(model => model.Object.Summary).Titled("Question").Encoded(false).RenderedAs(model => model.SearchTextHtml[0]);
+    columns.Add(model => model.Object.QuestionPost.Contents).Titled("Contents").Encoded(false).RenderedAs(model => model.SearchTextHtml[1]);
+    columns.Add(model => model.Object.TagsString).Titled("Tags").Encoded(false).RenderedAs(model => model.Object.TagsHTMLSmall).FilteredAs("TagFilter").Sortable(false);
+    columns.Add(model => model.Object.LastActivityDate).Titled("Last Activity").Encoded(false).RenderedAs(model => model.Object.LastActivityHtml).Filterable(false);
+})
+.Empty("No questions found")
+.RowCss(model => user != null && model.Object.QuestionPost.UserID == user.Id ? "user-highlight" : "")
+.Filterable()
+.Sortable()
+.Pageable(pager => pager.RowsPerPage = rowsPerPage))

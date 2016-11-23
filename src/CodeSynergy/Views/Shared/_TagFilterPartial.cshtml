@@ -1,0 +1,94 @@
+@model TagInputViewModel
+
+<script type="text/javascript">
+    var TagFilter = (function () {
+        function TagFilter() {
+        }
+
+        TagFilter.prototype = {
+            render: function (grid, popup, filter) {
+                var filterLang = $.fn.mvcgrid.lang.Filter;
+                var operator = $.fn.mvcgrid.lang.Operator;
+                var lang = $.fn.mvcgrid.lang.Text;
+
+                popup.html(
+                    '<div class="popup-arrow"></div>' +
+                    '<div class="popup-content">' +
+                        '<div class="first-filter popup-group">' +
+                            '<select class="mvc-grid-type">' +
+                                '<option value="Contains"' + (filter.first.type == 'Contains' ? ' selected="selected"' : '') + '>' + lang.Contains + '</option>' +
+                                '<option value="Equals"' + (filter.first.type == 'Equals' ? ' selected="selected"' : '') + '>' + lang.Equals + '</option>' +
+                                '<option value="NotEquals"' + (filter.first.type == 'NotEquals' ? ' selected="selected"' : '') + '>' + lang.NotEquals + '</option>' +
+                                '<option value="StartsWith"' + (filter.first.type == 'StartsWith' ? ' selected="selected"' : '') + '>' + lang.StartsWith + '</option>' +
+                                '<option value="EndsWith"' + (filter.first.type == 'EndsWith' ? ' selected="selected"' : '') + '>' + lang.EndsWith + '</option>' +
+                            '</select>' +
+                            '</div>' +
+                            '<div class="first-filter popup-group">' +
+                            @await Html.PartialAsync("_TagInputPartial", Model)
+                '</div>' +
+                '<div class="popup-button-group">' +
+                    '<button class="btn btn-success mvc-grid-apply" type="button">' + filterLang.Apply + '</button>' +
+                    '<button class="btn btn-danger mvc-grid-cancel" type="button">' + filterLang.Remove + '</button>' +
+                '</div>' +
+            '</div>');
+
+                initTagInput();
+            },
+
+            init: function (grid, column, popup) {
+                this.bindValue(grid, column, popup);
+                this.bindApply(grid, column, popup);
+                this.bindCancel(grid, column, popup);
+            },
+            bindValue: function (grid, column, popup) {
+                var inputs = popup.find('.mvc-grid-input');
+                inputs.on('keyup.mvcgrid', function (e) {
+                    if (e.which == 13) {
+                        popup.find('.mvc-grid-apply').click();
+                    }
+                });
+            },
+            bindApply: function (grid, column, popup) {
+                var apply = popup.find('.mvc-grid-apply');
+                apply.on('click.mvcgrid', function () {
+                    var $tagContainer = popup.find('.first-filter > #tagInputContainer');
+                    var tagString = "";
+                    var tagIds = [];
+                    var t;
+                    popup.removeClass('open');
+                    column.filter.operator = popup.find('.mvc-grid-operator').val();
+                    column.filter.first.type = popup.find('.first-filter .mvc-grid-type').val();
+
+                    for (t = 0; t < $tagContainer.children("span").length; t++) {
+                        if ($tagContainer.children("input[name='Tags[" + t + "].TagID']").length != 0) {
+                            tagIds.push($tagContainer.children("input[name='Tags[" + t + "].TagID']").val());
+                        }
+                    }
+
+                    tagIds.sort();
+
+                    for (t = 0; t < tagIds.length; t++)
+                        tagString += (t != 0 ? "," : "") + "[" + $tagContainer.children("input[value=" + tagIds[t] + "]").next().val() + "]";
+
+                    column.filter.first.val = tagString;
+
+                    grid.applyFilter(grid, column);
+                    grid.reload(grid);
+                });
+            },
+            bindCancel: function (grid, column, popup) {
+                var cancel = popup.find('.mvc-grid-cancel');
+                cancel.on('click.mvcgrid', function () {
+                    popup.removeClass('open');
+
+                    if (column.filter.first.type || column.filter.second.type) {
+                        grid.cancelFilter(grid, column);
+                        grid.reload(grid);
+                    }
+                });
+            }
+        };
+
+        return TagFilter;
+    })();
+</script>

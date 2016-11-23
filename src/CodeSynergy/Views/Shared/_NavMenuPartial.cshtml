@@ -1,31 +1,96 @@
 ﻿@using Microsoft.AspNetCore.Identity
 @using CodeSynergy.Models
 
-@inject SignInManager<ApplicationUser> SignInManager
-@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager SignInManager
+@inject UserManager UserManager
+@inject IJoinTableRepository<UserMailbox, string, byte> Mailboxes
+@inject IRepository<ModerationMailboxItem, int> ModerationMailbox
 
-@if (SignInManager.IsSignedIn(User))
-{
-    <form asp-controller="Account" asp-action="LogOff" method="post" id="logout-form" class="navbar-right">
+@{
+    bool isSignedIn = await SignInManager.IsSignedIn(User);
+}
+
+<div class="navbar-header">
+    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+    </button>
+    <a asp-controller="Home" asp-action="Index" class="navbar-brand hover-green"><img src="~/images/Logo.png" /></a>
+    <div class="profile-link-container">
+        @if (isSignedIn) // Show profile link if the user is signed in
+        {
+            ApplicationUser user = await (UserManager as UserManager).FindByEmailAsync(User.Identity.Name);
+            if (!UserManager.HasActiveBan(user)) // If the user is not banned, display profile link
+            {
+                <a href="/User" class="profile-link blue hover-green">
+                    <img src="@Html.Raw(user.ProfileImageUrl)" class="profile-image" width=48 height=48 />
+                    @Html.Raw(user.FullFormattedDisplayName)
+                </a>
+            } else // If the user is banned, sign them out
+            {
+                await SignInManager.SignOutAsync(user);
+                isSignedIn = false;
+            }
+        }
+    </div>
+</div>
+
+<div class="navbar-collapse collapse">
+    @if (isSignedIn) // If the user is signed in, display the nav menu
+    {
+        ApplicationUser user = await (UserManager as UserManager).FindByEmailAsync(User.Identity.Name);
+        <form asp-controller="Account" asp-action="LogOff" method="post" id="logout-form" class="navbar-right">
+            <ul class="nav navbar-nav navbar-right">
+                <li>
+                    <a id="mailbox-button" class="navbar-link blue hover-green" href="javascript:void(0)" title="Mailbox">
+                        @{
+                            int unreadCount = Mailboxes.Find(user.Id, (byte) EnumMailboxType.Inbox).Items.Where(i => (i as UserMailboxItem).MarkedAsSpamDate == null && i.DeletedDate == null && !i.ReadFlag).Count();
+                        }
+                        <span class="fa-stack fa-stack-3x">
+                            <i class="fa fa-inbox fa-3x fa-stack-3x"></i>
+                            <span class="fa-stack fa-stack-3x mailbox-unread-count mailbox-user-unread-count@{ @Html.Raw(unreadCount > 0 ? "" : " hidden") }">
+                                <label class="fa-stack-1x">@Math.Min(unreadCount, 99)</label>
+                                <i class="fa fa-circle fa-1x fa-stack-3x"></i>
+                            </span>
+                            @if (User.IsInRole("Moderator") || User.IsInRole("Administrator"))
+                            {
+                                int moderationUnreadCount = (ModerationMailbox as ModerationMailbox).Items.Where(i => i.DeletedDate == null && !i.ReadFlag).Count();
+                                <span class="fa-stack fa-stack-3x mailbox-unread-count mailbox-moderation-unread-count@{ @Html.Raw((unreadCount > 0 ? " stack" : "") + (moderationUnreadCount > 0 ? "" : " hidden")) }">
+                                    <label class="fa-stack-1x">@Math.Min(moderationUnreadCount, 99)</label>
+                                    <i class="fa fa-circle fa-1x fa-stack-3x"></i>
+                                </span>
+                            }
+                        </span>
+                    </a>
+                </li>
+                <li>
+                    <a id="search-button" class="navbar-link blue hover-green" asp-controller="Search" asp-action="Index" title="Search">
+                        <i class="fa fa-search fa-3x"></i>
+                    </a>
+                </li>
+                <li>
+                    <a id="menu-button" class="navbar-link blue hover-green" href="javascript:void(0)" title="Main Menu">
+                        <i class="fa fa-bars fa-3x"></i>
+                    </a>
+                </li>
+            </ul>
+        </form>
+    }
+    else
+    {
         <ul class="nav navbar-nav navbar-right">
             <li>
-                <img src="" width=32 height=32 />
+                <a id="search-button" class="navbar-link blue hover-green" asp-controller="Search" asp-action="Index" title="Search">
+                    <i class="fa fa-search fa-3x"></i>
+                </a>
             </li>
             <li>
-                <a id="menu-button" class="navbar-link blue hover-green" href="javascript:void(0)" title="Main Menu">
-                    <i class="fa fa-bars fa-3x"></i>
+                <a id="login-button" class="navbar-link blue hover-green" href="javascript:void(0)" title="Sign In">
+                    <i class="fa fa-sign-in fa-3x"></i>
                 </a>
             </li>
         </ul>
-    </form>
-}
-else
-{
-    <ul class="nav navbar-nav navbar-right">
-        <li>
-            <a id="login-button" class="navbar-link blue hover-green" href="javascript:void(0)" aria-hidden="true" title="Sign In">
-                <i class="fa fa-sign-in fa-3x"></i>
-            </a>
-        </li>
-    </ul>
-}
+    }
+</div>

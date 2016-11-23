@@ -1,0 +1,63 @@
+﻿@using NonFactors.Mvc.Grid
+
+@inject UserManager UserManager
+
+@model Question
+
+@{
+    ViewData["Title"] = "Questions Related to \"" + @Html.Raw(Model.Summary) + "\"";
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+    TagInputViewModel tagInputViewModel = new TagInputViewModel(null, true);
+}
+
+<style type="text/css">
+    #relatedQuestionGrid th i {
+        color: #004080;
+    }
+
+    #relatedQuestionGrid td, #relatedQuestionGrid th {
+        vertical-align: middle;
+    }
+
+    #relatedQuestionGrid td h2, #relatedQuestionGrid td h4 {
+        margin: 0;
+        color: #333;
+    }
+</style>
+
+@Html.Partial("_TagFilterPartial", tagInputViewModel)
+
+@Html.Partial("_TagInputScriptsPartial", tagInputViewModel)
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        var gridName = "relatedQuestionGrid";
+        var gridData = localStorage.getItem("gridData") != null ? JSON.parse(localStorage.getItem("gridData")) : null;
+        if (gridData == null) {
+            gridData = {};
+            gridData[gridName] = { "columnIndex": 1, "sortAsc": false };
+            localStorage.setItem("gridData", JSON.stringify(gridData));
+        } else if (gridData[gridName] == null) {
+            gridData[gridName] = { "columnIndex": 1, "sortAsc": false };
+            localStorage.setItem("gridData", JSON.stringify(gridData));
+        }
+
+        $("#modal .mvc-grid").mvcgrid({
+            filters: {
+                'TagFilter': new TagFilter()
+            },
+            rowClicked: function (grid, row, data, e) {
+                window.location.href = "/Question/" + data["QuestionID"];
+            }
+        });
+    });
+</script>
+
+<div class="col-md-12">
+    @Html.AjaxGrid(Url.Action("RelatedQuestionGrid", new
+    {
+        ColumnIndex = (Context.Request.Query.Keys.Contains("relatedQuestionGrid[columnIndex]") ? (String)Context.Request.Query["relatedQuestionGrid[columnIndex]"] : null),
+        SortAsc = (Context.Request.Query.Keys.Contains("relatedQuestionGrid[sortAsc]") ? (String)Context.Request.Query["relatedQuestionGrid[sortAsc]"] : null),
+        UseSearchGrid = user != null ? user.UseSearchGrid : false, QuestionID = Model.QuestionID
+    }))
+</div>

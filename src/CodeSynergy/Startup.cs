@@ -76,19 +76,29 @@ namespace CodeSynergy
                     o.Password.RequireUppercase = false;
                 })
                 .AddEntityFrameworkStores<ApplicationDbContext, string>()
-                .AddUserStore<UserStore<ApplicationUser, IdentityRole<string>, ApplicationDbContext, string>>()
+                .AddUserStore<UserRepository>()
                 .AddRoleStore<RoleStore<IdentityRole<string>, ApplicationDbContext, string>>()
+                .AddUserManager<UserManager>()
                 .AddDefaultTokenProviders();
 
             services.AddMvc();
             services.AddMvcGrid();
             
-            services.AddScoped<IKeyValueRepository<ApplicationUser, string>, UserRepository>();
+            services.AddScoped<UserStore<ApplicationUser, IdentityRole<string>, ApplicationDbContext, string>, UserRepository>();
+            services.AddScoped<IJoinTableRepository<UserMailbox, string, byte>, MailboxRepository>();
+            services.AddScoped<IRepository<PrivateMessage, long>, PrivateMessageRepository>();
+            services.AddSingleton<IRepository<ModerationMailboxItem, int>, ModerationMailbox>();
+            services.AddScoped<IRepository<Report, int>, ReportRepository>();
             services.AddScoped<IRepository<Ban, int>, BanRepository>();
             services.AddScoped<IRepository<UntrustedURLPattern, int>, UntrustedURLPatternRepository>();
+            services.AddScoped<IRepository<RankingPos, short>, RankingPosRepository>();
             services.AddScoped<IRepository<Question, int>, QuestionRepository>();
+            services.AddScoped<IJoinTableRepository<Star, string, int>, StarRepository>();
             services.AddScoped<IRepository<Tag, int>, TagRepository>();
+            services.AddScoped<IJoinTableRepository<QuestionTag, int, int>, QuestionTagRepository>();
             services.AddScoped<ApplicationDbContext, ApplicationDbContext>();
+            services.AddScoped<SignInManager, SignInManager>();
+            services.AddScoped<UserManager, UserManager>();
 
             // Add application services.
             services.AddTransient<IEmailSender, AuthMessageSender>();
@@ -119,56 +129,28 @@ namespace CodeSynergy
 
             app.UseIdentity();
 
-            //EnsureRoles(app, loggerFactory);
-
             // Add external authentication middleware below. To configure them please see http://go.microsoft.com/fwlink/?LinkID=532715
 
             app.UseMvc(routes =>
             {
                 routes.MapRoute(
                     name: "default",
-                    template: "{controller=Home}/{action=Index}/{id?}");
+                    template: "{controller=Home}/{action=Index}/{id:int?}/{modal?}");
+                routes.MapRoute(
+                   name: "question",
+                   template: "{controller=Question}/{id:int}/{action=Index}");
+                routes.MapRoute(
+                    name: "mailbox",
+                    template: "{controller=Mailbox}/{mailboxtypeid:int}/{mailboxitemid:int?}/{action=Index}");
+                routes.MapRoute(
+                    name: "user",
+                    template: "{controller=User}/{displayname?}/{action=Index}");
+                routes.MapRoute(
+                    name: "search",
+                    template: "{controller=Search}/{searchtype?}/{query?}/{action=Index}/{rowsperpage?}");
             });
 
-            CodeSynergy.Models.SeedData.Initialize(app.ApplicationServices);
-        }
-
-        private async void EnsureRoles(IApplicationBuilder app, ILoggerFactory loggerFactory)
-        {
-            ILogger logger = loggerFactory.CreateLogger<Startup>();
-            RoleManager<IdentityRole<string>> roleManager = app.ApplicationServices.GetService<RoleManager<IdentityRole<string>>>();
-
-            string[] roleNames = { "Administrator", "Moderator", "Member" };
-
-            foreach (string roleName in roleNames)
-            {
-                bool roleExists = await roleManager.RoleExistsAsync(roleName);
-                if (!roleExists)
-                {
-                    logger.LogInformation(String.Format("!roleExists for roleName {0}", roleName));
-                    IdentityRole<string> identityRole = new IdentityRole<string>();
-                    identityRole.Id = roleName;
-                    identityRole.Name = roleName;
-                    IdentityResult identityResult = await roleManager.CreateAsync(identityRole);
-                    if (!identityResult.Succeeded)
-                    {
-                        logger.LogCritical(
-                            String.Format(
-                                "!identityResult.Succeeded after roleManager.CreateAsync(identityRole) for  identityRole with roleName {0}", roleName));
-                        foreach (var error in identityResult.Errors)
-                        {
-                            logger.LogCritical(
-                                String.Format(
-                                    "identityResult.Error.Description: {0}",
-                                    error.Description));
-                            logger.LogCritical(
-                                String.Format(
-                                    "identityResult.Error.Code: {0}",
-                                 error.Code));
-                        }
-                    }
-                }
-            }
+            SeedData.Initialize(app.ApplicationServices);
         }
     }
 }

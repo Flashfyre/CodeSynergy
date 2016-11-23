@@ -1,0 +1,84 @@
+﻿@model PostQuestionViewModel
+
+@inject UserManager UserManager
+
+@{
+    ViewData["Title"] = "Ask a Question";
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+}
+
+<style type="text/css">
+    table#postQuestionTable {
+        width: 100%;
+        border: none;
+    }
+
+    table#postQuestionTable td {
+        padding: 5px;
+    }
+
+    table#postQuestionTable td > label.control-label {
+        float: right;
+    }
+
+    table#postQuestionTable td input {
+        max-width: 100%;
+    }
+</style>
+
+@Html.Partial("_ProfileBackgroundPartial", user)
+
+<script type="text/javascript">
+    var githubID = @{ @Html.Raw(user != null && user.GitHubID != null ? "\"" + user.GitHubID + "\"" : "null"); };
+    var githubRepoData = null;
+</script>
+
+<div class="row">
+    <div class="col-md-12">
+        <h2>@ViewData["Title"]</h2>
+        <hr />
+        <form asp-controller="Question" asp-action="Create" id="postQuestionForm" method="post" class="form-horizontal table-responsive" role="form">
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <table id="postQuestionTable">
+                <tr>
+                    <td width="10%">
+                        <label asp-for="Summary" class="control-label"></label>
+                    </td>
+                    <td width="90%">
+                        <input asp-for="Summary" type="text" class="form-control" maxlength="64" />
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label asp-for="Contents" class="control-label"></label>
+                    </td>
+                    <td>
+                        <textarea asp-for="Contents" id="Contents" maxlength="4000"></textarea>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2"><hr /></td>
+                </tr>
+                <tr>
+                    <td>
+                        <label asp-for="Tags" class="control-label left"></label>
+                    </td>
+                    <td>
+                        @await Html.PartialAsync("_TagInputPartial", new TagInputViewModel())
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="2"><hr /></td>
+                </tr>
+                <tr>
+                    <td colspan="2" class="center">
+                        <button type="submit" class="btn btn-lg btn-primary">Post Question</button>
+                    </td>
+                </tr>
+            </table>
+            @Html.AntiForgeryToken()
+        </form>
+    </div>
+</div>
+
+<script src="~/js/inittexteditors.js"></script>

@@ -1,0 +1,14 @@
+﻿@model TagInputViewModel
+
+@if (!Model.IsGridFilter)
+{
+    @Html.Partial("_TagInputScriptsPartial", Model)
+
+    <div id="tagInputContainer" class="form-control">
+        <input id="tagInput" type="text" maxlength="40">
+    </div>
+}
+else
+{
+    @Html.Raw("'<div id=\"tagInputContainer\" class=\"form-control mvc-grid-input\">' +\n'<input id=\"tagInput\" type=\"text\" maxlength=\"255\" value=\"' + filter.first.val.replace(/[\\[\\]]+/g, \"\").replace(/([^,]+),/g,\"$1 \") +'\" />' +\n'</div>' +");
+}

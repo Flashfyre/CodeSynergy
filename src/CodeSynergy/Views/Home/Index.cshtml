@@ -1,10 +1,65 @@
 ﻿@using NonFactors.Mvc.Grid;
 
+@inject UserManager UserManager
+
 @{
     ViewData["Title"] = "CodeSynergy - Home";
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+    TagInputViewModel tagInputViewModel = new TagInputViewModel(null, true);
 }
 
-<div id="myCarousel" class="carousel slide" data-ride="carousel" data-interval="6000">
+<style type="text/css">
+    #questionGrid th i {
+        color: #004080;
+    }
+
+    #questionGrid td, #questionGrid th {
+        vertical-align: middle;
+    }
+
+    #questionGrid td h2, #questionGrid td h4 {
+        margin: 0;
+        color: #333;
+    }
+
+    ul#recently-viewed-questions > li {
+        margin-bottom: 0.5em;
+    }
+</style>
+
+@Html.Partial("_ProfileBackgroundPartial", user)
+
+@Html.Partial("_TagFilterPartial", tagInputViewModel)
+
+@Html.Partial("_TagInputScriptsPartial", tagInputViewModel)
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        var gridName = "questionGrid";
+        var gridData = localStorage.getItem("gridData") != null ? JSON.parse(localStorage.getItem("gridData")) : null;
+        if (gridData == null) {
+            gridData = {};
+            gridData[gridName] = { "columnIndex": 7, "sortAsc": false };
+            localStorage.setItem("gridData", JSON.stringify(gridData));
+        } else if (gridData[gridName] == null) {
+            gridData[gridName] = { "columnIndex": 7, "sortAsc": false };
+            localStorage.setItem("gridData", JSON.stringify(gridData));
+        }
+
+        $(".mvc-grid").mvcgrid({
+            filters: {
+                'TagFilter': new TagFilter()
+            },
+            rowClicked: function (grid, row, data, e) {
+                if (!$(row).children("td:first-child").hasClass("mvc-grid-empty")) {
+                    window.location.href = "/Question/" + data["QuestionID"];
+                }
+            }
+        });
+    });
+</script>
+
+<!--<div id="myCarousel" class="carousel slide" data-ride="carousel" data-interval="6000">
     <ol class="carousel-indicators">
         <li data-target="#myCarousel" data-slide-to="0" class="active"></li>
         <li data-target="#myCarousel" data-slide-to="1"></li>
@@ -66,27 +121,29 @@
         <span class="sr-only">Next</span>
     </a>
 </div>
-
+-->
 <div class="row">
-    <div class="col-md-12" style="text-align: center;">
-        <a asp-controller="Home" asp-action="EditQuestion" role="button" class="btn btn-lg btn-primary">Ask a Question</a>
+    <div class="col-md-12 center" style="margin-bottom: 1.5em;">
+        <a asp-controller="Question" asp-action="Create" role="button" class="btn btn-lg btn-primary">Ask a Question</a>
     </div>
-    <div class="col-md-9">
-        @Html.AjaxGrid(Url.Action("QuestionGrid", new { }))
+    <div class="col-md-@{ @Html.Raw(ViewBag.RecentQuestions.Count > 0 ? "9" : "12"); }">
+        @Html.AjaxGrid(Url.Action("QuestionGrid", new { ColumnIndex = (Context.Request.Query.Keys.Contains("questionGrid[columnIndex]") ?  (String) Context.Request.Query["questionGrid[columnIndex]"] : null),
+            SortAsc = (Context.Request.Query.Keys.Contains("questionGrid[sortAsc]") ? (String) Context.Request.Query["questionGrid[sortAsc]"] : null),
+            UseSearchGrid = user != null ? user.UseSearchGrid : false }))
     </div>
-    <div class="recent-activity col-md-3">
-        <h2>Recent Activity</h2>
-        <hr />
-        <ul>
-            <li><a href="http://go.microsoft.com/fwlink/?LinkID=398600">Add a Controller and View</a></li>
-            <li><a href="http://go.microsoft.com/fwlink/?LinkID=699314">Add an appsetting in config and access it in app.</a></li>
-            <li><a href="http://go.microsoft.com/fwlink/?LinkId=699315">Manage User Secrets using Secret Manager.</a></li>
-            <li><a href="http://go.microsoft.com/fwlink/?LinkId=699316">Use logging to log a message.</a></li>
-            <li><a href="http://go.microsoft.com/fwlink/?LinkId=699317">Add packages using NuGet.</a></li>
-            <li><a href="http://go.microsoft.com/fwlink/?LinkId=699318">Add client packages using Bower.</a></li>
-            <li><a href="http://go.microsoft.com/fwlink/?LinkId=699319">Target development, staging or production environment.</a></li>
-        </ul>
-    </div>
+    @if (ViewBag.RecentQuestions.Count > 0)
+    {
+        <div class="recent-activity col-md-3">
+            <h2>Recently Viewed</h2>
+            <hr />
+            <ul id="recently-viewed-questions">
+                @foreach (Question question in ViewBag.RecentQuestions)
+                {
+                    <li><a href="/Question/@question.QuestionID">@Html.Raw(question.SummaryHtml)</a></li>
+                }
+            </ul>
+        </div>
+    }
 </div>
 
 <script src="~/js/inittexteditors.js"></script>

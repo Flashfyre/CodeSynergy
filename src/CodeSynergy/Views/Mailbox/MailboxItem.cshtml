@@ -1,0 +1,211 @@
+﻿@model MessageViewModel
+
+@inject UserManager UserManager
+
+@{ 
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+    ApplicationUser originalSender = Model.Item.Message.SenderUser;
+    bool showReportButton = Model.Item is UserMailboxItem && Model.Item.Message.SenderUserID != user.Id;
+    bool showBanButton = Model.Item.Message.SenderUserID != null && Model.Item.Message.SenderUserID != user.Id && (user.Role == "Moderator" || user.Role == "Administrator") && (Model.Item.Message.SenderUser.Role == "Member"
+        || (user.Role == "Administrator" && Model.Item.Message.SenderUser.Role == "Moderator") || (user.Email == "admin@codesynergy.com"));
+}
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        init();
+
+        var $listRow = $(".mailbox-item-row[data-@{ @Html.Raw(Model.Item is UserMailboxItem ? "private-message-id=" + (Model.Item as UserMailboxItem).PrivateMessage.PrivateMessageID : "mailbox-type-id=" + Model.Item.MailboxTypeID + "][data-mailbox-item-id=" + Model.Item.MailboxItemID); }]");
+
+        if (!$listRow.hasClass("open")) {
+            $(".mailbox-item-row.open").removeClass("open");
+            $listRow.addClass("open");
+        }
+
+        if ($listRow.hasClass("mailbox-item-row-unread"))
+            $listRow.removeClass("mailbox-item-row-unread");
+
+        var unreadCount = @ViewData["UnreadCount"];
+
+        $(".mailbox-user-unread-count > label").html(unreadCount);
+
+        if (unreadCount == 0)
+            $(".mailbox-user-unread-count").addClass("hidden");
+        else
+            $(".mailbox-user-unread-count").removeClass("hidden");
+
+        @if (ViewData["ModerationUnreadCount"] != null)
+        {
+            @Html.Raw("var moderationUnreadCount = " + ViewData["ModerationUnreadCount"] + "; $(\".mailbox-moderation-unread-count > label\").html(moderationUnreadCount); "
+              + "if (moderationUnreadCount == 0) $(\".mailbox-moderation-unread-count\").addClass(\"hidden\"); else $(\".mailbox-moderation-unread-count\").removeClass(\"hidden\"); "
+              + "if (unreadCount > 0) $(\".mailbox-moderation-unread-count\").addClass(\"stack\"); else $(\".mailbox-moderation-unread-count\").removeClass(\"stack\");");
+        }
+    });
+</script>
+
+<div id="mailbox-item-table-container" class="table-responsive" data-return-url="@ViewData["ReturnUrl"]">
+    <table id="mailboxItemTable">
+        <tbody>
+            <tr>
+                <td class="message-title" colspan="3">
+                    <h4>Subject: @Model.Item.Message.Summary</h4>
+                </td>
+                @if (Model.Item is UserMailboxItem) {
+                    <td class="message-star">
+                        <i class="fa fa-2x fa-star@{ @Html.Raw((Model.Item as UserMailboxItem).StarredDate == null ? "-o" : " starred"); } btn-star" data-mailbox-type-id="@Model.Item.MailboxTypeID" data-mailbox-item-id="@Model.Item.MailboxItemID"></i>
+                    </td>
+                }
+            </tr>
+            @if (Model.Item is ModerationMailboxItem)
+            {
+                ModerationMailboxItem moderationItem = Model.Item as ModerationMailboxItem;
+                string appendToURL = "?Modal=Mailbox/" + Model.Item.MailboxTypeID + "/" + Model.Item.MailboxItemID;
+                <tr @{ @Html.Raw(moderationItem.AssignedDate == null ? "class=\"hidden\"" : ""); }>
+                    <td class="message-assign-info" colspan="3">
+                        <div class="assign-info">
+                            <p>
+                                This report was assigned to <strong class="assign-info-assignee">@Html.Raw(moderationItem.AssignedDate == null ? "" : moderationItem.AssigneeUser.GetFullFormattedDisplayName(null, true,
+                                    appendToURL))</strong> by <strong class="assign-info-assigner">@Html.Raw(moderationItem.AssignedDate == null ? "" : moderationItem.AssignerUser.GetFullFormattedDisplayName(null, true,
+                                    appendToURL))</strong> on <span class="assign-info-date">@Html.Raw(moderationItem.AssignedDate == null ? "" : ((DateTime) moderationItem.AssignedDate).ToLocalTime().ToString())</span>
+                            </p>
+                        </div>
+                    </td>
+                </tr>
+                <tr @{ @Html.Raw(moderationItem.ResolvedDate == null ? "class=\"hidden\"" : "") ; }>
+                    <td class="message-resolve-info" colspan="3">
+                        <div class="resolve-info">
+                            <p>
+                                This report was marked as resolved by <strong class="resolve-info-resolver">@Html.Raw(moderationItem.ResolvedDate == null ? "" : moderationItem.AssigneeUser.GetFullFormattedDisplayName(null, true,
+                                    appendToURL))</strong> on <span class="resolve-info-date">@Html.Raw(moderationItem.ResolvedDate == null ? "" : ((DateTime) moderationItem.ResolvedDate).ToLocalTime().ToString())</span>
+                            </p>
+                            <p>
+                                <strong>Action taken:</strong>&nbsp;<span class="resolve-info-action">@Html.Raw(moderationItem.ResolvedDate == null ? "" : moderationItem.ActionTaken)</span>
+                            </p>
+                        </div>
+                    </td>
+                </tr>
+            }
+            <tr>
+                @if (originalSender != null)
+                {
+                    <td class="message-profile-image" rowspan="2">
+                        <img src="@Html.Raw(originalSender.ProfileImageUrl)" class="profile-image" width=48 height=48 />
+                    </td>
+                }
+                <td class="message-display-name" @{ @Html.Raw(originalSender != null ? "" : "colspan=\"2\""); }>
+                    <label>@{ @Html.Raw(originalSender != null ? originalSender.GetFullFormattedDisplayName(UserManager as UserManager, true, "?Modal=Mailbox/" + Model.Item.MailboxTypeID + "/" + Model.Item.MailboxItemID) : "Guest"); }</label>
+                </td>
+                <td class="message-sent-date">
+                    <span title="@Model.Item.Message.SentDate">@Model.Item.Message.GetTimeSinceSentDate()</span>
+                </td>
+                @if (showReportButton)
+                {
+                    <td class="message-report">
+                        <i class="fa fa-bullhorn fa-2x btn-report" data-mailbox-type-id="@Model.Item.MailboxTypeID" data-mailbox-item-id="@Model.Item.MailboxItemID" data-report-type-id="@((byte)(Model.Item as UserMailboxItem).PrivateMessage.GetReportType())" data-reportable-item-id="@((Model.Item as UserMailboxItem).PrivateMessage.GetReportableItemID())"></i>
+                    </td>
+                } else if (showBanButton)
+                {
+                    <td class="message-ban">
+                        <i class="fa fa-gavel fa-2x btn-ban" data-display-name="@Model.Item.Message.SenderUser.DisplayName"></i>
+                    </td>
+                }
+            </tr>
+            @if (originalSender != null || (showReportButton && showBanButton))
+            {
+                <tr>
+                    @if (originalSender != null)
+                    {
+                        <td colspan="@((Model.Item is UserMailboxItem ? 2 : 1) + (showReportButton && showBanButton ? 0 : 1))">
+                            @originalSender.JobTitle
+                        </td>
+                    }
+                    @if (showReportButton && showBanButton)
+                    {
+                        <td class="message-ban">
+                            <i class="fa fa-gavel fa-2x btn-ban" data-display-name="@Model.Item.Message.SenderUser.DisplayName"></i>
+                        </td>
+                    }
+                </tr>
+            }
+            <tr>
+                <td class="message-body" colspan="@((Model.Item is UserMailboxItem ? 4 : 3))">
+                    @Html.Raw(Model.Item is UserMailboxItem ? Model.Item.Message.Contents : string.Format(Model.Item.Message.Contents, (Model.Item as ModerationMailboxItem).Report.ReportedItem.GetReportableItemLinkHtml((string) ViewData["ReturnUrl"])))
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    @if (Model.Item is UserMailboxItem)
+    {
+        <button id="btn-reply" class="btn btn-primary">Reply</button>
+        <hr style="display: none;" />
+    }
+</div>
+
+@if (Model.Item is UserMailboxItem)
+{
+    <div class="hidden">
+        <form id="messageReplyForm" asp-controller="Mailbox" asp-route-returnurl="@ViewData["ReturnUrl"]" method="post" class="form-horizontal" role="form">
+            <input asp-for="@(Model as PrivateMessageViewModel).DisplayName" type="hidden" class="form-control" maxlength="20" />
+            <div class="form-group">
+                <label asp-for="@(Model as PrivateMessageViewModel).Summary" class="col-md-2 control-label"></label>
+                <div class="col-md-10">
+                    <input asp-for="@(Model as PrivateMessageViewModel).Summary" class="form-control" maxlength="64" />
+                    <span asp-validation-for="@(Model as PrivateMessageViewModel).Summary" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label asp-for="@(Model as PrivateMessageViewModel).Contents" class="col-md-2 control-label"></label>
+                <div class="col-md-10">
+                    <textarea asp-for="@(Model as PrivateMessageViewModel).Contents" id="Contents" maxlength="4000"></textarea>
+                    <span asp-validation-for="@(Model as PrivateMessageViewModel).Contents" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-md-2"></div>
+                <div class="col-md-10">
+                    <button id="btn-cancel" class="btn btn-primary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Send Reply</button>
+                </div>
+            </div>
+            @Html.AntiForgeryToken()
+        </form>
+    </div>
+
+    <script src="~/js/inittexteditors.js"></script>
+}
+else
+{
+    <br />
+    <div class="form-group col-md-12">
+        <div class="col-md-3">
+            <a id="btn-assign" href="javascript:void(0);" class="btn btn-primary btn-block@{ @Html.Raw(((Model.Item as ModerationMailboxItem).AssignedDate != null ? " undo" : "") + ((Model.Item as ModerationMailboxItem).ResolvedDate != null && user.Role != "Administrator" ? " disabled" : "")); }" data-mailbox-item-id="@Model.Item.MailboxItemID">@{ @Html.Raw((Model.Item as ModerationMailboxItem).AssignedDate != null ? "Una" : "A"); }ssign</a>
+        </div>
+        <div class="col-md-5">
+            @{
+                List<SelectListItem> listItems = new List<SelectListItem>();
+                ((IEnumerable<ApplicationUser>) ViewBag.AssignableUsers).AsParallel().ForAll(u => listItems.Add(new SelectListItem() { Text = u.FormattedDisplayName, Value = u.DisplayName }));
+                var attributesAssigned = new { id = "select-assigned-user", @class = "form-control", disabled = "" };
+                var attributesUnassigned = new { id = "select-assigned-user", @class = "form-control" };
+            }
+            @if ((Model.Item as ModerationMailboxItem).AssignedDate != null)
+            {
+                @Html.DropDownListFor(m => (m as ReportActionViewModel).AssigneeDisplayName, listItems, attributesAssigned)
+            }
+            else
+            {
+                @Html.DropDownListFor(m => (m as ReportActionViewModel).AssigneeDisplayName, listItems, attributesUnassigned)
+            }
+        </div>
+        <div class="col-md-4">
+            <a id="btn-resolve" href="javascript:void(0);" class="btn btn-primary btn-block@{ @Html.Raw(((Model.Item as ModerationMailboxItem).ResolvedDate != null ? " undo" : "") + ((Model.Item as ModerationMailboxItem).AssignedDate == null || (Model.Item as ModerationMailboxItem).AssigneeUserID != user.Id && user.Role != "Administrator" ? " disabled" : "")); }" data-mailbox-item-id="@Model.Item.MailboxItemID">Mark @{ @Html.Raw((Model.Item as ModerationMailboxItem).ResolvedDate != null ? "Unr" : "R"); }esolved</a>
+        </div>
+    </div>
+    <div class="col-md-12@{ @Html.Raw((Model.Item as ModerationMailboxItem).AssignedDate == null || (Model.Item as ModerationMailboxItem).ResolvedDate != null || (Model.Item as ModerationMailboxItem).AssigneeUserID != user.Id ? " hidden" : ""); }">
+        <textarea asp-for="@(Model.Item as ModerationMailboxItem).ActionTaken" id="action-taken" maxlength="255" placeholder="Action taken" class="form-control" rows="4"></textarea>
+    </div>
+    @Html.AntiForgeryToken()
+}
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

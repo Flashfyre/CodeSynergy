@@ -2,14 +2,33 @@
 
 @model IEnumerable<UntrustedURLPattern>
 
-@(Html.Grid(Model).Named("untrustedURLPatternGrid").Build(columns =>
-    {
-        columns.Add(model => model.PatternID).Titled("Hidden ID").Css("hidden");
-        columns.Add(model => model.AddedByUser.Role).Titled("Added By User Role").Named("AddedByUserRole").Css("hidden");
-        columns.Add(model => model.AddedByUser.DisplayName).Titled("Added By");
-        columns.Add(model => model.LastUpdatedByUser != null ? model.LastUpdatedByUser.DisplayName : "N/A").Titled("Last Updated By");
-        columns.Add(model => model.PatternText).Titled("Pattern");
-    })
+@{
+    const string gridName = "untrustedURLPatternGrid";
+    int sortIndex = (int)ViewData["columnIndex"];
+    bool sortAsc = (bool)ViewData["sortAsc"];
+}
+
+@(Html.Grid(Model).Named(gridName).Build(columns =>
+{
+    columns.Add(model => model.PatternID).Titled("Hidden ID").Css("hidden");
+    columns.Add(model => model.AddedByUser.Role).Titled("Added By User Role").Named("AddedByUserRole").Css("hidden");
+    columns.Add(model => model.AddedByUser.DisplayName).Titled("Added By");
+    columns.Add(model => model.LastUpdatedByUser.DisplayName).RenderedAs(model => model.LastUpdatedByUser != null ? model.LastUpdatedByUser.DisplayName : "N/A").Titled("Last Updated By");
+    columns.Add(model => model.PatternText).Titled("Pattern");
+
+    if (sortIndex != -1 && sortIndex < columns.Count())
+        columns.ElementAt(sortIndex).InitialSort(sortAsc ? GridSortOrder.Asc : GridSortOrder.Desc);
+})
+.Empty("No untrusted URL patterns found")
 .Filterable()
 .Sortable()
-.Pageable())
+.Pageable(p => p.RowsPerPage = 10))
+
+<script type="text/javascript">
+    // Update modal height
+    $(document).ready(function () {
+        var modalHeight = $("#modal")[0].offsetHeight - (parseInt($("#modal").css("padding-top")) + parseInt($("#modal").css("padding-bottom")) + $("#modal > div#modal-header")[0].offsetHeight);
+        if ($("#modal > div#modal-content").children().length > 0 && modalHeight < $("#modal")[0].offsetHeight)
+            $("#modal > div#modal-content").css("height", modalHeight + "px");
+    });
+</script>

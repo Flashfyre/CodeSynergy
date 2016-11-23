@@ -1,5 +1,6 @@
 ﻿using CodeSynergy.Data;
 using CodeSynergy.Models.Repositories;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,18 +19,20 @@ namespace CodeSynergy.Models.Repositories
 
         public IEnumerable<Question> GetAll()
         {
-            return context.Questions.AsEnumerable();
+            return context.Questions.Include(q => q.Posts).ThenInclude(p => p.User).ThenInclude(u => u.Roles).Include(q => q.Posts).ThenInclude(p => p.Comments).Include(q => q.Stars)
+                .Include(q => q.QuestionTags).ThenInclude(qt => qt.Tag).AsEnumerable();
         }
 
-        public void Add(Question item)
+        public void Add(Question questionIn)
         {
-            context.Questions.Add(item);
+            context.Questions.Add(questionIn);
             context.SaveChanges();
         }
 
         public Question Find(int id)
         {
-            return context.Questions.SingleOrDefault(q => q.QuestionID == id);
+            return context.Questions.Include(q => q.LockedByUser).Include(q => q.Posts).ThenInclude(p => p.User).ThenInclude(u => u.Roles).Include(q => q.Posts).ThenInclude(p => p.Comments).Include(q => q.Stars)
+                .Include(q => q.QuestionTags).ThenInclude(qt => qt.Tag).SingleOrDefault(q => q.QuestionID == id);
         }
 
         public bool Remove(Question questionIn)

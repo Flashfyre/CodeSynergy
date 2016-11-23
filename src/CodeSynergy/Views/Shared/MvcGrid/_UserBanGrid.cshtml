@@ -2,17 +2,36 @@
 
 @model IEnumerable<Ban>
 
-@(Html.Grid(Model).Named("userBanGrid").Build(columns =>
-    {
-        columns.Add(model => model.BanID).Titled("Hidden ID").Css("hidden");
-        columns.Add(model => model.BannedUser.Role).Titled("Banned User Role").Named("BannedUserRole").Css("hidden");
-        columns.Add(model => model.BannedUser.DisplayName).Titled("Banned User");
-        columns.Add(model => model.BanningUser.DisplayName).Titled("Banned By");
-        columns.Add(model => model.BanReason).Titled("Ban Reason");
-        columns.Add(model => ((EnumBanTerm) model.BanTerm).DisplayName()).Named("BanTerm").Titled("Ban Term");
-        columns.Add(model => model.BanDate).Titled("Date Banned");
-        columns.Add(model => model.BanLiftDate).Titled("Ban Lift Date");
-    })
+@{
+    const string gridName = "userBanGrid";
+    int sortIndex = (int)ViewData["columnIndex"];
+    bool sortAsc = (bool)ViewData["sortAsc"];
+}
+
+@(Html.Grid(Model).Named(gridName).Build(columns =>
+{
+    columns.Add(model => model.BanID).Titled("Hidden ID").Css("hidden");
+    columns.Add(model => model.BannedUser.Role).Titled("Banned User Role").Named("BannedUserRole").Css("hidden");
+    columns.Add(model => model.BannedUser.DisplayName).Titled("Banned User");
+    columns.Add(model => model.BanningUser.DisplayName).Titled("Banned By");
+    columns.Add(model => model.BanReason).Titled("Ban Reason");
+    columns.Add(model => ((EnumBanTerm) model.BanTerm).DisplayName()).Named("BanTerm").Titled("Ban Term");
+    columns.Add(model => model.BanDate).Titled("Date Banned");
+    columns.Add(model => model.BanLiftDate).Titled("Ban Lift Date");
+
+    if (sortIndex != -1 && sortIndex < columns.Count())
+        columns.ElementAt(sortIndex).InitialSort(sortAsc ? GridSortOrder.Asc : GridSortOrder.Desc);
+})
+.Empty("No active bans found")
 .Filterable()
 .Sortable()
-.Pageable())
+.Pageable(p => p.RowsPerPage = 10))
+
+<script type="text/javascript">
+    // Update modal height
+    $(document).ready(function () {
+        var modalHeight = $("#modal")[0].offsetHeight - (parseInt($("#modal").css("padding-top")) + parseInt($("#modal").css("padding-bottom")) + $("#modal > div#modal-header")[0].offsetHeight);
+        if ($("#modal > div#modal-content").children().length > 0 && modalHeight < $("#modal")[0].offsetHeight)
+            $("#modal > div#modal-content").css("height", modalHeight + "px");
+    });
+</script>

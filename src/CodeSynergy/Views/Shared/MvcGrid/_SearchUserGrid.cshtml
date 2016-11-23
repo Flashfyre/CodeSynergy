@@ -1,0 +1,44 @@
+﻿@using NonFactors.Mvc.Grid;
+@using CodeSynergy.Models.Repositories;
+
+@inject UserManager UserManager
+
+@model IEnumerable<SearchResult<ApplicationUser>>
+
+@{
+    const string gridName = "searchUserGrid";
+    QuestionRepository questions = ViewBag.Questions;
+    int rowsPerPage = (int) ViewBag.RowsPerPage;
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+}
+
+@(Html.Grid(Model).Named(gridName).Build(columns =>
+{
+    if (Model.Any() && Model.ElementAt(0).Query != null)
+        columns.Add(model => model.Occurences).Titled("Occurrences").Encoded(false).RenderedAs(model => "<h2 class='occurrence-count'>" + model.Occurences + "</h2>").Css("center").InitialSort(GridSortOrder.Desc);
+    if (User.IsInRole("Administrator"))
+    {
+        columns.Add(model => model.Object.Id).Titled("Hidden ID");
+        columns.Add(model => model.Object.Email).Titled("Email");
+    }
+    columns.Add(model => model.Object.FormattedDisplayName).Titled("Display Name").Named("DisplayName").Encoded(false).RenderedAs(model => "<label>" + model.Object.RoleBadge + model.SearchTextHtml[0] + "</label>");
+    columns.Add(model => model.Object.Reputation).Titled("Rep").Encoded(false).RenderedAs(model => "<h4 class='rep-score'>" + model.Object.Reputation + "</h4>").Css("center");
+    columns.Add(model => model.Object.BestAnswerCount).Titled("Best Answers").Encoded(false).RenderedAs(model => "<h4 class='best-answer-count'>" + model.Object.BestAnswerCount + "</h4>").Css("center");
+    columns.Add(model => model.Object.QuestionsPosted).Titled("Questions").Encoded(false).RenderedAs(model => "<h4 class='question-count'>" + model.Object.QuestionsPosted + "</h4>").Css("center");
+    columns.Add(model => model.Object.AnswersPosted).Titled("Answers").Encoded(false).RenderedAs(model => "<h4 class='answer-count'>" + model.Object.AnswersPosted + "</h4>").Css("center");
+    columns.Add(model => model.Object.CommentsPosted).Titled("Comments").Encoded(false).RenderedAs(model => "<h4 class='comment-count'>" + model.Object.CommentsPosted + "</h4>").Css("center");
+    columns.Add(model => model.Object.TotalPosts).Titled("Total Posts").Encoded(false).RenderedAs(model => "<h4 class='post-count'>" + model.Object.TotalPosts + "</h4>").Css("center");
+    columns.Add(model => model.Object.QuestionScore).Titled("Question Score").Encoded(false).RenderedAs(model => "<h4 class='question-score'>" + model.Object.QuestionScore + "</h4>").Css("center");
+    columns.Add(model => model.Object.AnswerScore).Titled("Answer Score").Encoded(false).RenderedAs(model => "<h4 class='answer-score'>" + model.Object.AnswerScore + "</h4>").Css("center");
+    columns.Add(model => model.Object.CommentScore).Titled("Comment Score").Encoded(false).RenderedAs(model => "<h4 class='comment-score'>" + model.Object.CommentScore + "</h4>").Css("center");
+    columns.Add(model => model.Object.TotalScore).Titled("Total Score").Encoded(false).RenderedAs(model => "<h4 class='total-score'>" + model.Object.TotalScore + "</h4>").Css("center");
+    columns.Add(model => model.Object.StarCount).Titled("Stars").Encoded(false).RenderedAs(model => "<h4 class='star-count'>" + model.Object.StarCount + "</h4>").Css("center");
+    columns.Add(model => model.Object.ProfileViewCount).Titled("Profile Views").Encoded(false).RenderedAs(model => "<h4 class='profile-view-count'>" + model.Object.ProfileViewCount + "</h4>").Css("center");
+    columns.Add(model => model.Object.RegistrationDate).Titled("Registration Date").Encoded(false).RenderedAs(model => "<span title=\"" + model.Object.RegistrationDate + "\">" + model.Object.TimeSinceRegistrationDate + "</span>");
+    columns.Add(model => model.Object.LastActivityDate).Titled("Last Activity").Encoded(false).RenderedAs(model => "<span title=\"" + model.Object.LastActivityDate + "\">" + model.Object.TimeSinceLastActivityDate + "</span>");
+})
+.Empty("No users found")
+.RowCss(model => user != null && model.Object.Id == user.Id ? "user-highlight" : "")
+.Filterable()
+.Sortable()
+.Pageable(pager => pager.RowsPerPage = rowsPerPage))

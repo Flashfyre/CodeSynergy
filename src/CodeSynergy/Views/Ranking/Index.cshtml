@@ -1,0 +1,73 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@inject UserManager UserManager
+
+@model int
+
+@{
+    ViewData["Title"] = "User Rankings";
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+}
+
+<style type="text/css">
+    .mvc-grid {
+        overflow-x: auto;
+    }
+
+   .mvc-grid td, .mvc-grid th {
+        vertical-align: middle !important;
+    }
+
+    .fa-stack > strong {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+</style>
+
+@Html.Partial("_ProfileBackgroundPartial", user)
+
+<script type="text/javascript">
+    var gridName = "rankingGrid";
+    var gridData = localStorage.getItem("gridData") != null ? JSON.parse(localStorage.getItem("gridData")) : null;
+    if (gridData == null) {
+        gridData = {};
+        gridData[gridName] = { "columnIndex": 0, "sortAsc": true };
+        localStorage.setItem("gridData", JSON.stringify(gridData));
+    } else if (gridData[gridName] == null) {
+        gridData[gridName] = { "columnIndex": 0, "sortAsc": true };
+        localStorage.setItem("gridData", JSON.stringify(gridData));
+    }
+
+    $(document).ready(function () {
+        $("#main .mvc-grid").mvcgrid({
+            cellClicked: function (grid, cell, data, e) {
+                if (!$(cell).is(":first-child")) {
+                    switch (grid.name) {
+                        default:
+                            var displayName = data[Object.keys(data)[0]];
+                            displayName = displayName.slice(0, displayName.lastIndexOf(" ", displayName.lastIndexOf(" ") - 1));
+                            window.location.href = "/User/" + displayName;
+                            break;
+                    }
+                }
+            }
+        });
+    });
+</script>
+
+<div class="row">
+    <div class="col-md-12">
+        <h2>@ViewData["Title"]</h2>
+        <hr />
+        @Html.AjaxGrid(Url.Action("RankingGrid", new {
+            ColumnIndex = (Context.Request.Query.Keys.Contains("relatedQuestionGrid[columnIndex]") ? (String)Context.Request.Query["relatedQuestionGrid[columnIndex]"] : null),
+            SortAsc = (Context.Request.Query.Keys.Contains("relatedQuestionGrid[sortAsc]") ? (String)Context.Request.Query["relatedQuestionGrid[sortAsc]"] : null),
+            Page = Model.ToString()
+        }))
+    </div>
+</div>
+
+<script src="~/js/inittexteditors.js"></script>

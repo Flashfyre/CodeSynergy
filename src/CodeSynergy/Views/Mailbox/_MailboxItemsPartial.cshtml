@@ -1,0 +1,111 @@
+﻿@model MailboxListViewModel
+
+@inject UserManager UserManager
+
+@{ 
+    ApplicationUser user = await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name);
+    bool showCheckboxes = Model.Mailbox.MailboxTypeID != (byte) EnumMailboxType.Moderation || user.Role == "Administrator";
+}
+
+<div id="@Html.Raw(((EnumMailboxType) Model.Mailbox.MailboxTypeID).DisplayName().ToLower())" class="tab-pane fade@{@Html.Raw(!Model.IsActive ? "" : " in active");}" data-return-url="@Model.ReturnUrl">
+    <div class="mailbox-controls col-md-12">
+        <div class="col-md-3">
+            @if (Model.Mailbox.MailboxTypeID != (byte) EnumMailboxType.Moderation)
+            {
+                <button class="btn btn-primary btn-block btn-new-message" data-mailbox-type-id="@Model.Mailbox.MailboxTypeID">New Message</button>
+            }
+        </div>
+        <div class="col-md-3">
+            @if (showCheckboxes)
+            {
+                <button class="btn btn-primary btn-block btn-mailbox-item-select btn-mark-read" data-mailbox-type-id="@Model.Mailbox.MailboxTypeID" disabled>Mark as Read</button>
+            }
+        </div>
+        @if (Model.Mailbox.MailboxTypeID != (byte) EnumMailboxType.Moderation) {
+            <div class="col-md-3">
+                @if (showCheckboxes && Model.Mailbox.MailboxTypeID != (byte) EnumMailboxType.Sent && Model.Mailbox.MailboxTypeID != (byte) EnumMailboxType.Deleted)
+                {
+                    <button class="btn btn-primary btn-block btn-mailbox-item-select btn-mark-spam@{@Html.Raw(Model.Mailbox.MailboxTypeID != (byte) EnumMailboxType.Spam ? "" : " undo");}" data-mailbox-type-id="@Model.Mailbox.MailboxTypeID" disabled>@Html.Raw(Model.Mailbox.MailboxTypeID != (byte) EnumMailboxType.Spam ? "Mark as" : "Not") Spam</button>
+                }
+            </div>
+        }
+        <div class="col-md-3">
+            @if (showCheckboxes)
+            {
+                <button class="btn btn-primary btn-block btn-mailbox-item-select btn-delete@{@Html.Raw(Model.Mailbox.MailboxTypeID != (byte) EnumMailboxType.Deleted ? "" : " undo");}" data-mailbox-type-id="@Model.Mailbox.MailboxTypeID" disabled>@Html.Raw(Model.Mailbox.MailboxTypeID != (byte) EnumMailboxType.Deleted ? "D" : "Und")elete</button>
+            }
+        </div>
+        @if (Model.Mailbox.MailboxTypeID == (byte) EnumMailboxType.Moderation) {
+            <div class="col-md-3"></div>
+        }
+        <div class="col-md-12">
+            <hr class="separator" />
+        </div>
+        @if (showCheckboxes)
+        {
+            <div class="col-md-1">
+                <input name="select-all-@Model.Mailbox.MailboxTypeID" class="mailbox-item-select-all" type="checkbox" data-mailbox-type-id="@Model.Mailbox.MailboxTypeID" />
+            </div>
+        }
+        <div class="col-md-@{ @Html.Raw(showCheckboxes ? "7" : "8"); }">
+            <input name="search-@Model.Mailbox.MailboxTypeID" placeholder="Search Messages" class="form-control mailbox-search" data-mailbox-type-id="@Model.Mailbox.MailboxTypeID" />
+        </div>
+        <div class="col-md-4">
+            <select name="sort" class="form-control mailbox-sort" data-mailbox-type-id="@Model.Mailbox.MailboxTypeID">
+                <option value="1" selected>Newest</option>
+                <option value="0">Oldest</option>
+                <option value="2">Subject (Asc)</option>
+                <option value="3">Subject (Desc)</option>
+                <option value="4">Sender (Asc)</option>
+                <option value="5">Sender (Desc)</option>
+            </select>
+        </div>
+    </div>
+    <div class="mailbox-list-table-container table-responsive scroll-div">
+        <table id="mailboxListTable@{ @Html.Raw(Model.Mailbox.MailboxTypeID); }" class="mailbox-list-table">
+            <tbody>
+                @if (Model.Mailbox.Items.Any())
+                {
+                    @foreach (MailboxItem item in Model.Mailbox.Items.OrderByDescending(i => i.Message.SentDate))
+                    {
+                        <tr class="@item.RowClassHtml" data-mailbox-type-id="@Model.Mailbox.MailboxTypeID" data-mailbox-item-id="@item.MailboxItemID" data-mailbox-item-sender="@item.Message.SenderName" @Html.Raw(Model.Mailbox.MailboxTypeID != (byte)EnumMailboxType.Moderation ? "data-private-message-id=\"" + ((PrivateMessage)item.Message).PrivateMessageID + "\"" : "")>
+                            <td>
+                                @if (showCheckboxes)
+                                {
+                                    <div class="col-md-1">
+                                        <input name="select-@item.MailboxItemID-@Model.Mailbox.MailboxTypeID" class="mailbox-item-select" type="checkbox" />
+                                    </div>
+                                }
+                                <div class="mailbox-item col-md-@{ @Html.Raw(showCheckboxes ? "11" : "12"); }">
+                                    <div class="col-md-4 mailbox-item-display-name">
+                                        <label>@Html.Raw(item.Message.SenderUser != null ? item.Message.SenderUser.GetFullFormattedDisplayName(UserManager as UserManager) : "Guest")</label>
+                                    </div>
+                                    <div class="col-md-5 mailbox-item-summary">
+                                        @item.Message.Summary@Html.Raw(Model.Mailbox.MailboxTypeID != (byte) EnumMailboxType.Moderation ? ((UserMailboxItem) item).StarredDate != null ?
+                                            "<span class=\"mailbox-item-star\">&nbsp;<i class=\"fa fa-star btn-star starred\"></i></span>" : "" :
+                                            ((ModerationMailboxItem) item).AssignedDate != null ? "<span class=\"mailbox-item-" +
+                                            (((ModerationMailboxItem) item).ResolvedDate != null ? "resolve\">&nbsp;<i class=\"fa fa-check\"></i>" : "assign\">&nbsp;<i class=\"fa fa-user\"></i>") + "</span>" : "")
+                                    </div>
+                                    <div class="col-md-3 mailbox-item-sent-date">
+                                        <span title="@item.Message.SentDate">@item.Message.GetTimeSinceSentDate()</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                <tr class="mailbox-item-row mailbox-item-row-empty@{@Html.Raw(Model.Mailbox.Items.Any(i => Model.Mailbox.MailboxTypeID == (byte) EnumMailboxType.Moderation || (i.DeletedDate == null && (i as UserMailboxItem).MarkedAsSpamDate == null)) ? " hidden" : "");}">
+                    <td class="center" colspan="4">
+                        <div class="mailbox-item mailbox-item-empty">
+                            <label>There are no messages to display.</label>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

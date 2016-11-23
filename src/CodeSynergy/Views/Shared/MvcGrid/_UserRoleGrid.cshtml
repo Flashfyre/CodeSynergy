@@ -2,14 +2,23 @@
 
 @model IEnumerable<ApplicationUser>
 
-@(Html.Grid(Model).Named("userRoleGrid").Build(columns =>
-    {
-        columns.Add(model => model.Id).Titled("Hidden ID").Css("hidden");
-        columns.Add(model => model.UserName).Titled("User ID");
-        columns.Add(model => model.DisplayName).Titled("Display Name");
-        columns.Add(model => model.Role).Titled("User Role").FilteredAs("UserRoleSelect");
-        columns.Add(model => model.RegistrationDate).Titled("Registration Date").Filterable(false);
-    })
+@{
+    const string gridName = "userRoleGrid";
+    int sortIndex = (int)ViewData["columnIndex"];
+    bool sortAsc = (bool)ViewData["sortAsc"];
+}
+
+@(Html.Grid(Model).Named(gridName).Build(columns =>
+{
+    columns.Add(model => model.Id).Titled("Hidden ID").Css("hidden");
+    columns.Add(model => model.UserName).Titled("User ID");
+    columns.Add(model => model.FormattedDisplayName).Titled("Display Name");
+    columns.Add(model => model.Role).Titled("User Role").FilteredAs("UserRoleSelect");
+    columns.Add(model => model.RegistrationDate).Titled("Registration Date").Filterable(false);
+
+    if (sortIndex != -1 && sortIndex < columns.Count())
+        columns.ElementAt(sortIndex).InitialSort(sortAsc ? GridSortOrder.Asc : GridSortOrder.Desc);
+})
 .Filterable()
 .Sortable()
-.Pageable())
+.Pageable(p => p.RowsPerPage = 10))

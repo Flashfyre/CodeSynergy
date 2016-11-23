@@ -10,10 +10,12 @@ namespace CodeSynergy.Models
 {
     public static class SeedData
     {
+        // Seed the database where necessary
         public static void Initialize(IServiceProvider serviceProvider)
         {
             using (var context = new ApplicationDbContext())
             {
+                // If there are no roles, add the necessary user roles
                 if (!context.Roles.Any())
                 {
                     context.Roles.AddRange(
@@ -36,9 +38,57 @@ namespace CodeSynergy.Models
                             NormalizedName = "MEMBER"
                         }
                     );
-
                 }
 
+                // If there are users without roles assigned, add member roles for them
+                if (context.UserRoles.Count() < context.Users.Count())
+                {
+                    context.Users.Where(u => !u.Roles.Any()).AsParallel().ForAll(
+                        u => u.Role = "Member"
+                    );
+                }
+
+                // If there are no user mailboxes, add a user mailbox for each user
+                if (!context.UserMailboxes.Any())
+                {
+                    Array mailboxTypes = Enum.GetValues(typeof(EnumUserMailboxType));
+                    foreach (ApplicationUser user in context.Users)
+                    {
+                        UserMailbox[] mailboxes = new UserMailbox[mailboxTypes.Length - 1];
+                        foreach (EnumUserMailboxType mailboxType in mailboxTypes) {
+                            UserMailbox mailbox = new UserMailbox()
+                            {
+                                UserID = user.Id,
+                                MailboxTypeID = (byte) mailboxType
+                            };
+                            mailboxes[(int) mailboxType] = mailbox;
+                        }
+                        context.UserMailboxes.AddRange(mailboxes);
+                    }
+                }
+
+                // If any new ranking categories have been added to the enumerator, add them as RankingCategory rows
+                if (context.RankingCategories.Count() < Enum.GetValues(typeof(EnumRankingCategory)).Length)
+                {
+                    List<RankingCategory> rankingCategories = new List<RankingCategory>();
+
+                    foreach (EnumRankingCategory rankingCategory in Enum.GetValues(typeof(EnumRankingCategory)))
+                    {
+                        if (!context.RankingCategories.Any(r => r.RankingName != rankingCategory.DisplayName()))
+                            rankingCategories.Add(new RankingCategory() { RankingCategoryID = (byte) ((int) rankingCategory + 1), RankingName = rankingCategory.DisplayName() });
+                    }
+
+                    context.RankingCategories.AddRange(rankingCategories.ToArray());
+                }
+
+                // If there are no ranking positions, add 100 ranking positions
+                if (!context.RankingPos.Any())
+                {
+                    for (short r = 1; r <= 100; r++)
+                        context.RankingPos.Add(new RankingPos() { RankingPosID = r });
+                }
+
+                // If there are no countries, add every country in the world
                 if (!context.Countries.Any())
                 {
                     context.Countries.AddRange(
@@ -1774,6 +1824,7 @@ namespace CodeSynergy.Models
                     );
                 }
 
+                // If there are no regions, add every region in the world
                 if (!context.Regions.Any())
                 {
                     context.Regions.AddRange(
@@ -26428,6 +26479,7 @@ namespace CodeSynergy.Models
                     );
                 }
 
+                // If there are no user, add the admin user and user role
                 if (!context.Users.Any())
                 {
                     ApplicationUser adminUser = new ApplicationUser("admin@codesynergy.net")
@@ -26444,14 +26496,20 @@ namespace CodeSynergy.Models
                         GitHubID = "Samuel-H",
                         ProfileGitHub = true,
                         ProfileMessage = null,
+                        ExcludeFromRanking = false,
                         RegistrationDate = DateTime.Now,
                         LastActivityDate = DateTime.Now,
                         QuestionsPosted = 0,
                         AnswersPosted = 0,
                         CommentsPosted = 0,
+                        QuestionScore = 0,
+                        AnswerScore = 0,
+                        CommentScore = 0,
+                        BestAnswerCount = 0,
+                        StarCount = 0,
                         ProfileViewCount = 0,
                         Reputation = 0,
-                        Status = 1
+                        Online = false
                     };
                     context.Users.Add(adminUser);
 
@@ -26462,6 +26520,7 @@ namespace CodeSynergy.Models
                     });
                 }
 
+                // Save changes to the database
                 context.SaveChanges();
             }
         }

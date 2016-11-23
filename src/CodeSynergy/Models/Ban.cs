@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace CodeSynergy.Models
 {
+    // Class representing the Bans table
     public class Ban
     {
         [Key]
@@ -54,6 +55,7 @@ namespace CodeSynergy.Models
         Perm = 4
     };
 
+    // Extension for EnumBanTerm to help with display and access of all values
     public static class BanTermHelper
     {
         public static DateTime DateTimeOffset(this EnumBanTerm banTerm, DateTime dateTime)

@@ -1,0 +1,10 @@
+@model ApplicationUser
+
+<style type="text/css">
+    @if (Model != null && Model.UseProfileBackground) {
+        @Html.Raw("body { background-image: url('" + Model.BackgroundImageUrl + "');" + (Model.HasCustomBackground ? " background-size: cover;" : "") + " }")
+        @if(Model.HasCustomBackground) {
+            @Html.Raw(" #main > .body-content { background: rgba(255, 255, 255, 0.95); } hr { border-top-color: #bbb }")
+        }
+    }
+</style>

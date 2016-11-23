@@ -1,0 +1,35 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@inject UserManager UserManager
+
+@model IEnumerable<RankingPos>
+
+@{
+    const string gridName = "rankingGrid";
+    int sortIndex = (int) ViewData["columnIndex"];
+    bool sortAsc = (bool) ViewData["sortAsc"];
+    int page = (int) ViewData["page"];
+    Array rankingCategories = Enum.GetValues(typeof(EnumRankingCategory));
+    string[] rankingCategoryNames = new string[Enum.GetValues(typeof(EnumRankingCategory)).Length];
+    for (int c = 0; c < rankingCategoryNames.Length; c++)
+    {
+        rankingCategoryNames[c] = ((EnumRankingCategory)c).DisplayName();
+    }
+}
+
+@(Html.Grid(Model).Named(gridName).Css("cell-select").Build(columns =>
+{
+    columns.Add(model => model.RankingPosID).Titled("Position").Encoded(false).RenderedAs(model => model.RankingPosHtml).Css("center");
+    for (int i = 1; i <= 11; i++)
+    {
+        int index = i;
+        string rankingCategoryName = rankingCategoryNames[index - 1];
+        columns.Add(model => model.Rankings.Single(r => r.RankingCategoryID == index).User.FormattedDisplayName).Titled(rankingCategoryName).Named(rankingCategoryName).Encoded(false).RenderedAs(model => "<div>" + model.Rankings.Single(r => r.RankingCategoryID == index).ProfileImageHtml + "</div>" + model.Rankings.Single(r => r.RankingCategoryID == index).User.FullFormattedDisplayName + "<br /> <span class=\"ranking-score\">" + ((EnumRankingCategory)index - 1).GetFormattedScore(model.Rankings.Single(r => r.RankingCategoryID == index).Score) + "</span>").Css("center");
+    }
+    if (sortIndex != -1 && sortIndex < columns.Count())
+        columns.ElementAt(sortIndex).InitialSort(sortAsc ? GridSortOrder.Asc : GridSortOrder.Desc);
+})
+.Empty("No rankings found")
+.Filterable()
+.Sortable()
+.Pageable(p => p.RowsPerPage = 10).Pageable(p => p.CurrentPage = page))

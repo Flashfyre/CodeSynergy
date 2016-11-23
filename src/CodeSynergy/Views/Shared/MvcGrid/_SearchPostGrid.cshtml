@@ -1,0 +1,34 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@inject UserManager UserManager
+
+@model IEnumerable<SearchResult<Post>>
+
+@{
+    const string gridName = "searchPostGrid";
+    int rowsPerPage = (int) ViewBag.RowsPerPage;
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+}
+
+@(Html.Grid(Model).Named(gridName).Build(columns =>
+{
+    if (Model.Any() && Model.ElementAt(0).Query != null)
+        columns.Add(model => model.Occurences).Titled("Occurrences").Encoded(false).RenderedAs(model => "<h2 class='occurrence-count'>" + model.Occurences + "</h2>").Css("center").InitialSort(GridSortOrder.Desc);
+    if (User.IsInRole("Administrator"))
+    {
+        columns.Add(model => model.Object.QuestionID).Titled("Question ID").Css("hidden");
+        columns.Add(model => model.Object.QuestionPostID).Titled("Question Post ID").Css("hidden");
+    }
+    columns.Add(model => model.Object.Question.Summary).Titled("Question").Encoded(false).RenderedAs(model => model.Object.Question.SummaryHtml);
+    columns.Add(model => model.Object.User.FormattedDisplayName).Titled("Posted By").Encoded(false).RenderedAs(model => "<label>" + model.Object.User.RoleBadge + "<a href=\"#\">" + model.Object.User.FormattedDisplayName + "</a></label>");
+    columns.Add(model => model.Object.PostType).Titled("Post Type").FilteredAs("PostTypeSelectFilter").Css("center");
+    columns.Add(model => model.Object.Score).Titled("Score").Encoded(false).RenderedAs(model => "<h2 class='score'>" + model.Object.Score + "</h2>").Css("center");
+    columns.Add(model => model.Object.Contents).Titled("Contents").Encoded(false).RenderedAs(model => model.SearchTextHtml[0]);
+    columns.Add(model => model.Object.PostDate).Titled("Post Date").Encoded(false).RenderedAs(model => "<span title=\"" + model.Object.PostDate + "\">" + model.Object.GetTimeSincePostDate() + "</span>");
+    columns.Add(model => model.Object.EditDate).Titled("Last Edit Date").Encoded(false).RenderedAs(model => "<span title=\"" + model.Object.EditDate + "\">" + model.Object.GetTimeSinceEditDate() + "</span>");
+})
+.Empty("No posts found")
+.RowCss(model => user != null && model.Object.UserID == user.Id ? "user-highlight" : "")
+.Filterable()
+.Sortable()
+.Pageable(pager => pager.RowsPerPage = rowsPerPage))

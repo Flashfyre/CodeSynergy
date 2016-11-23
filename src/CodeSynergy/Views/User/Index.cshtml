@@ -1,0 +1,341 @@
+﻿@using NonFactors.Mvc.Grid
+
+@model ProfileViewModel
+
+@inject UserManager UserManager
+
+@{
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+    RepVote repVote = ViewBag.RepVote;
+    IEnumerable<Ranking> rankings = ViewBag.Rankings;
+    bool hasJobTitleOrLocation = Model.User.JobTitle != null || Model.User.CountryID != null;
+}
+
+<link rel="stylesheet" href="~/css/user.css" />
+
+<style type="text/css">
+    body {
+        background-image: url("@Model.User.BackgroundImageUrl");
+        @if (Model.User.HasCustomBackground)
+        {
+            @Html.Raw("background-size: cover;")
+        }
+    }
+
+    @if (@Model.User.HasCustomBackground) {
+        @Html.Raw("#main > .body-content { background: rgba(255, 255, 255, 0.95); } hr { border-top-color: #bbb }")
+    }
+</style>
+
+<script type="text/javascript">
+    var githubID = @{ @Html.Raw(user != null && user.GitHubID != null ? "\"" + user.GitHubID + "\"" : "null"); };
+    var githubRepoData = null;
+
+    function repVote(vote) {
+        $.ajax({
+            type: "POST",
+            url: '/User/RepVote',
+            contentType: "application/x-www-form-urlencoded; charset=utf-8",
+            data: {
+                displayName: "@Model.User.DisplayName",
+                vote: vote,
+                __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+            },
+            dataType: "json",
+            success: function (data) {
+                if (data[0]) {
+                    var $btn = $(".btn-" + (vote ? "up" : "down") + "vote-rep").removeClass("not-voted");
+                    var $oppBtn = $(".btn-" + (vote ? "down" : "up") + "vote-rep");
+                    if ($btn.hasClass("not-voted") || !$oppBtn.hasClass("not-voted")) {
+                        $oppBtn.addClass("not-voted");
+                    } else {
+                        $oppBtn.removeClass("not-voted");
+                    }
+                    $("span.rep").html(data[1]);
+                } else {
+                    alert(data[1]);
+                }
+            },
+            error: function () { alert("Error: Something went wrong while attempting to cast a vote on the user's reputation."); }
+        });
+    }
+
+    function clearAutosaveData() {
+        localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-Contents-draft");
+        localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-Contents-time");
+    }
+
+    $(document).ready(function () {
+        var gridData = localStorage.getItem("gridData") != null ? JSON.parse(localStorage.getItem("gridData")) : null;
+        if (gridData == null) {
+            gridData = {};
+            gridData["userPostGrid"] = { "columnIndex": 2, "sortAsc": false };
+            gridData["userTagGrid"] = { "columnIndex": 10, "sortAsc": false };
+            localStorage.setItem("gridData", JSON.stringify(gridData));
+        } else {
+            if (gridData["userPostGrid"] == null) {
+                gridData["userPostGrid"] = { "columnIndex": 2, "sortAsc": false };
+                localStorage.setItem("gridData", JSON.stringify(gridData));
+            }
+            if (gridData["userTagGrid"] == null) {
+                gridData["userTagGrid"] = { "columnIndex": 10, "sortAsc": false };
+                localStorage.setItem("gridData", JSON.stringify(gridData));
+            }
+        }
+
+        var PostTypeSelectFilter = (function () {
+            function PostTypeSelectFilter() {
+            }
+
+            PostTypeSelectFilter.prototype = {
+                render: function (grid, popup, filter) {
+                    popup.html(
+                        '<div class="popup-arrow"></div>' +
+                        '<div class="popup-content">' +
+                            '<div class="first-filter popup-group">' +
+                                '<select class="mvc-grid-input">' +
+                                    '<option value="Question"' + (filter.first.val == "Question" ? 'selected' : '') + '>Questions</option>"' +
+                                    '<option value="Answer"' + (filter.first.val == "Answer" ? 'selected' : '') + '>Answers</option>"' +
+                                    '<option value="Comment"' + (filter.first.val == "Comment" ? 'selected' : '') + '>Comments</option>"' +
+                                '</select>' +
+                            '</div>' +
+                            '<div class="popup-button-group">' +
+                                '<button class="btn btn-success mvc-grid-apply" type="button">✔</button>' +
+                                '<button class="btn btn-danger mvc-grid-cancel" type="button">✘</button>' +
+                            '</div>' +
+                        '</div>'
+                    );
+            },
+                init: function (grid, column, popup) {
+                this.bindValue(grid, column, popup);
+                this.bindApply(grid, column, popup);
+                this.bindCancel(grid, column, popup);
+            },
+            bindValue: function (grid, column, popup) {
+                var inputs = popup.find('.mvc-grid-input');
+                inputs.on('keyup.mvcgrid', function (e) {
+                    if (e.which == 13) {
+                        popup.find('.mvc-grid-apply').click();
+                    }
+                });
+            },
+            bindApply: function (grid, column, popup) {
+                var apply = popup.find('.mvc-grid-apply');
+                apply.on('click.mvcgrid', function () {
+                    popup.removeClass('open');
+                    column.filter.first.type = 'Contains';
+                    column.filter.second.type = 'Contains';
+                    column.filter.operator = popup.find('.mvc-grid-operator').val();
+                    column.filter.first.val = popup.find('.first-filter .mvc-grid-input').val();
+                    column.filter.second.val = popup.find('.second-filter .mvc-grid-input').val();
+
+                    grid.applyFilter(grid, column);
+                    grid.reload(grid);
+                });
+            },
+            bindCancel: function (grid, column, popup) {
+                var cancel = popup.find('.mvc-grid-cancel');
+                cancel.on('click.mvcgrid', function () {
+                    popup.removeClass('open');
+
+                    if (column.filter.first.type || column.filter.second.type) {
+                        grid.cancelFilter(grid, column);
+                        grid.reload(grid);
+                    }
+                });
+            }
+        };
+
+        return PostTypeSelectFilter;
+        })();
+
+        $("#main .mvc-grid").mvcgrid({
+            filters: {
+                "PostTypeSelectFilter": new PostTypeSelectFilter()
+            },
+            rowClicked: function (grid, row, data, e) {
+                if (!$(row).children("td:first-child").hasClass("mvc-grid-empty")) {
+                    if (grid.name == "userPostGrid") {
+                        window.location.href = "/Question/" + data["QuestionID"] + "#p" + data["QuestionPostID"];
+                    }
+                }
+            }
+        });
+
+        $(".btn-cancel").click(function () {
+            if ($(this).is("#btn-cancel-profile-message-edit")) {
+                // Use some jQuery cloning and removal to reinitialize the TinyMCE editors with their original content
+                $('textarea[name=Contents]:last').each(function () { clearAutosaveData(); $(this).clone().show().insertAfter($(this)); $(this).prev().remove(); $(this).remove(); });
+                initEditors();
+                $(this).parent().addClass('hidden').prev().show().prev().show();
+            } else {
+                $(this).parentsUntil("form", "table").parent().addClass('hidden').prev().show();
+            }
+
+            return false;
+        });
+
+        $(".btn-upvote-rep:not(.disabled)").click(function () { repVote(true); });
+        $(".btn-downvote-rep:not(.disabled)").click(function () { repVote(false); });
+
+        @if (user != null && user.Id == Model.User.Id)
+        {
+            @Html.Raw("$('#btn-edit-profile-image, #btn-edit-background-image').click(function() { $(this).hide().next().removeClass('hidden'); });");
+            @Html.Raw("$('#btn-edit-profile-message').click(function() { $(this).prev().hide().next().hide().next().removeClass('hidden'); });");
+        }
+
+        @if (!Model.IsImage) {
+            @Html.Raw("if ($('#editProfileForm').children('.validation-summary-errors').children().length > 0) { $('#btn-edit-profile-message').trigger('click'); }");
+        }
+    });
+</script>
+
+<div class="row">
+    <div class="col-md-3">
+        <img id="profile-image" src="@Model.User.ProfileImageUrl" class="profile-image" width="256" height="256" />
+        @if (user != null && user.Id == Model.User.Id)
+        {
+            <button id="btn-edit-profile-image" class="btn btn-primary btn-edit">Update Profile Image</button>
+            <form asp-action="Index" asp-controller="User" method="post" id="profile-image-form" class="form-horizontal table-responsive hidden" enctype="multipart/form-data">
+                <table id="user-profile-image-table">
+                    <tbody>
+                        <tr>
+                            <td colspan="2">
+                                <input type="hidden" asp-for="@Model.Contents" />
+                                <input type="hidden" asp-for="@Model.IsImage" value="true" />
+                                <input type="file" asp-for="@Model.ProfileImage" class="filestyle" data-buttonName="btn-primary">
+                                @Html.LabelFor(model => model.ResizeMethod, "Stretch")&nbsp;<input type="radio" name="ResizeMethod" value="0" checked />&nbsp;&nbsp;
+                                @Html.LabelFor(model => model.ResizeMethod, "Crop")&nbsp;<input type="radio" name="ResizeMethod" value="1" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <button class="btn btn-primary btn-block btn-cancel">Cancel</button>
+                            </td>
+                            <td>
+                                <button type="submit" class="btn btn-primary btn-block">Upload</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </form>
+            <button id="btn-edit-background-image" class="btn btn-primary btn-edit">Update Background Image</button>
+            <form asp-action="Index" asp-controller="User" method="post" id="background-image-form" class="form-horizontal table-responsive hidden" enctype="multipart/form-data">
+                <table id="user-profile-image-table">
+                    <tbody>
+                        <tr>
+                            <td colspan="2">
+                                <input type="hidden" asp-for="@Model.Contents" />
+                                <input type="hidden" asp-for="@Model.IsImage" value="true" />
+                                <input type="hidden" asp-for="@Model.IsBackgroundImage" value="true" />
+                                <input type="file" asp-for="@Model.BackgroundImage" class="filestyle" data-buttonName="btn-primary">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <button class="btn btn-primary btn-block btn-cancel">Cancel</button>
+                            </td>
+                            <td>
+                                <button type="submit" class="btn btn-primary btn-block">Upload</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </form>
+        }
+        <h3>Rep: <span class="rep">@Model.User.Reputation</span> <span><i class="fa fa-plus-square btn-upvote btn-upvote-rep@{if (repVote != null && !repVote.Vote) { @Html.Raw(" not-voted"); } }@{if (user == null || Model.User.Id == user.Id) { @Html.Raw(" disabled"); } }"></i> <i class="fa fa-minus-square btn-downvote btn-downvote-rep@{if (repVote != null && repVote.Vote) { @Html.Raw(" not-voted"); } }@{if (user == null || Model.User.Id == user.Id) { @Html.Raw(" disabled"); } }"></i></span></h3>
+        <hr />
+        <h2>Stats</h2>
+        <div class="table-responsive">
+            <table id="user-stats-table">
+                @foreach (EnumRankingCategory rankingCategory in Enum.GetValues(typeof(EnumRankingCategory))) {
+                    Ranking ranking = rankings.Any(r => r.RankingCategoryID == ((byte)rankingCategory + 1)) ? rankings.Single(r => r.RankingCategoryID == ((byte)rankingCategory + 1)) : null;
+                    <tr>
+                        <td><h4>@rankingCategory.DisplayName():</h4></td>
+                        <td><h4>@Html.Raw(rankingCategory.GetFormattedUserScore(Model.User, ranking))</h4></td>
+                    </tr>
+                }
+            </table>
+        </div>
+    </div>
+    <div class="col-md-9 table-responsive">
+        <table id="user-table">
+            <tbody>
+                <tr>
+                    <td>
+                        <h2>
+                            @Html.Raw(Model.User.GetFullFormattedDisplayName(UserManager as UserManager))@Html.Raw(user != null && user.Id != Model.User.Id ? Model.User.PrivateMessageButton : "")@Html.Raw(Model.User.GitHubLink)
+                            @if (user == null || Model.User.Id != user.Id)
+                            {
+                                <i class="fa fa-bullhorn btn-report" data-report-type-id="@((byte) Model.User.GetReportType())" data-reportable-item-id="@Model.User.GetReportableItemID()"></i>
+                            }
+                            @if (user != null && user.Id != Model.User.Id && (user.Role == "Moderator" || user.Role == "Administrator") && (Model.User.Role == "Member" || ((user.Role == "Administrator") && Model.User.Role == "Moderator") || user.Email == "admin@codesynergy.com"))
+                            {
+                                <i class="fa fa-gavel btn-ban" data-display-name="@Model.User.DisplayName"></i>
+                            }
+                        </h2>
+                    </td>
+                    <td @{if (hasJobTitleOrLocation) { @Html.Raw("rowspan=\"2\""); }}>
+                        <h4>Profile Views:&nbsp;</h4>
+                        <h4>Last Activity:&nbsp;</h4>
+                    </td>
+                    <td @{if (hasJobTitleOrLocation) { @Html.Raw("rowspan=\"2\""); }}>
+                        <h4>@Model.User.ProfileViewCount</h4>
+                        <h4 title="@Model.User.LastActivityDate">@Model.User.TimeSinceLastActivityDate</h4>
+                    </td>
+                </tr>
+                @if (hasJobTitleOrLocation)
+                {
+                    <tr>
+                        <td>
+                            <h3 id="user-job-title">@Model.User.JobTitle</h3>
+                            <h3 id="user-location">@Model.User.Location</h3>
+                        </td>
+                    </tr>
+                }
+                <tr>
+                    <td>
+                        @if (user != null && Model.User.Id == user.Id)
+                        {
+                            @Html.Raw(Model.User.ProfileMessage + "&nbsp;")<i id="btn-edit-profile-message" class="fa fa-pencil btn-edit"></i>
+                            <form asp-controller="User" asp-action="Index" method="post" id="editProfileForm" class="form-horizontal hidden" role="form">
+                                <div asp-validation-summary="All" class="text-danger"></div>
+                                <input type="hidden" asp-for="@Model.IsImage" value="false" />
+                                <textarea asp-for="@Model.Contents" id="Contents" maxlength="4000"></textarea>
+                                <br />
+                                <button id="btn-cancel-profile-message-edit" class="btn btn-primary btn-cancel">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Update Profile</button>
+                            </form>
+                        }
+                        else
+                        {
+                            @Html.Raw(Model.User.ProfileMessage)
+                        }
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <hr />
+        <div id="user-posts" class="col-md-12">
+            <h3>Posts (@Model.User.PostCount Total)</h3>
+            @Html.AjaxGrid(Url.Action("UserPostGrid", new
+            {
+                UserDisplayName = Model.User.DisplayName,
+                ColumnIndex = (Context.Request.Query.Keys.Contains("userPostGrid[columnIndex]") ? (String)Context.Request.Query["userPostGrid[columnIndex]"] : null),
+                SortAsc = (Context.Request.Query.Keys.Contains("userPostGrid[sortAsc]") ? (String)Context.Request.Query["userPostGrid[sortAsc]"] : null)
+            }))
+        </div>
+        <div id="user-tags" class="col-md-12">
+            <h3>Tags (@Model.User.UserTags.Count() Total)</h3>
+            @Html.AjaxGrid(Url.Action("UserTagGrid", new
+            {
+                UserDisplayName = Model.User.DisplayName,
+                ColumnIndex = (Context.Request.Query.Keys.Contains("userTagGrid[columnIndex]") ? (String)Context.Request.Query["userTagGrid[columnIndex]"] : null),
+                SortAsc = (Context.Request.Query.Keys.Contains("userTagGrid[sortAsc]") ? (String)Context.Request.Query["userTagGrid[sortAsc]"] : null)
+            }))
+        </div>
+    </div>
+</div>
+
+<script src="~/js/inittexteditors.js"></script>

@@ -1,0 +1,28 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@inject UserManager UserManager
+
+@model IEnumerable<Post>
+
+@{
+    const string gridName = "userPostGrid";
+    int sortIndex = (int) ViewData["columnIndex"];
+    bool sortAsc = (bool) ViewData["sortAsc"];
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+}
+
+@(Html.Grid(Model).Named(gridName).Build(columns =>
+{
+    columns.Add(model => model.QuestionID).Titled("Question ID").Css("hidden");
+    columns.Add(model => model.QuestionPostID).Titled("Question Post ID").Css("hidden");
+    columns.Add(model => model.LastActivityDate).Titled("").Encoded(false).RenderedAs(model => model.Question.SummaryHtml + "<br />" + model.Question.TagsHTMLSmall + "<span style='float: right;'>" + model.LastActivityHtml + "</span>").Filterable(false).Sortable(true);
+    columns.Add(model => model.PostType).Titled("Post Type").FilteredAs("PostTypeSelectFilter").Css("center");
+    columns.Add(model => model.Score).Titled("Score").Encoded(false).RenderedAs(model => "<h2 class='score'>" + model.Score + "</h2>").Css("center");
+    if (sortIndex != -1 && sortIndex < columns.Count())
+        columns.ElementAt(sortIndex).InitialSort(sortAsc ? GridSortOrder.Asc : GridSortOrder.Desc);
+})
+.Empty("No user posts found")
+.RowCss(model => user != null && model.Question.QuestionPost.UserID == user.Id ? "user-highlight" : "")
+.Filterable()
+.Sortable()
+.Pageable(p => p.RowsPerPage = 5))

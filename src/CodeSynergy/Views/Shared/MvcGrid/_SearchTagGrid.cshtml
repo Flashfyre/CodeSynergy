@@ -1,0 +1,21 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@model IEnumerable<SearchResult<Tag>>
+
+@{
+    const string gridName = "searchTagGrid";
+    int rowsPerPage = (int) ViewBag.RowsPerPage;
+}
+
+@(Html.Grid(Model).Named(gridName).Build(columns =>
+{
+    if (Model.Any() && Model.ElementAt(0).Query != null)
+        columns.Add(model => model.Occurences).Titled("Occurrences").Encoded(false).RenderedAs(model => "<h2 class='occurrence-count'>" + model.Occurences + "</h2>").Css("center").InitialSort(GridSortOrder.Desc);
+    columns.Add(model => model.Object.TagID).Titled("Hidden ID").Css("hidden");
+    columns.Add(model => model.Object.TagName).Titled("Tag Name").Encoded(false).RenderedAs(model => model.SearchTextHtml[0]);
+    columns.Add(model => model.Object.TaggedQuestionsCount).Titled("Tagged Questions");
+})
+.Empty("No tags found")
+.Filterable()
+.Sortable()
+.Pageable(pager => pager.RowsPerPage = rowsPerPage))

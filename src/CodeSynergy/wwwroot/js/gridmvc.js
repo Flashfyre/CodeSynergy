@@ -14,6 +14,9 @@ var MvcGrid = (function () {
         options = options || {};
         this.name = grid.attr('id') || '';
         this.rowClicked = options.rowClicked;
+        // BEGIN modified
+        this.cellClicked = options.cellClicked;
+        // END modified
         this.reloadEnded = options.reloadEnded;
         this.reloadFailed = options.reloadFailed;
         this.reloadStarted = options.reloadStarted;
@@ -37,10 +40,17 @@ var MvcGrid = (function () {
             this.query = window.location.search.replace('?', '');
         }
 
-        if (options.reload || (this.sourceUrl && !options.isLoaded)) {
+        // BEGIN modified
+        var isLoaded = !options.reload && (!this.sourceUrl || options.isLoaded);
+        
+        if (!isLoaded) {
             this.reload(this);
             return;
-        }
+        } else
+            $(window).trigger("resize");
+
+        var isSorted = false;
+        // END modified
 
         var headers = grid.find('th');
         for (var i = 0; i < headers.length; i++) {
@@ -49,12 +59,17 @@ var MvcGrid = (function () {
             this.bindSort(this, column);
             this.cleanup(this, column);
             this.columns.push(column);
+            // BEGIN modified
+            if (!isSorted && column.sort && column.sort.order != "") {
+                isSorted = true;
+            }
+            // END modified
         }
 
         var pager = grid.find('.mvc-grid-pager');
         if (pager.length > 0) {
             this.pager = {
-                currentPage: pager.find('li.active').data('page') || '',
+                currentPage: pager.find('li.active').data('page') || 0,
                 rowsPerPage: pager.find('.mvc-grid-pager-rows'),
                 pages: pager.find('li:not(.disabled)'),
                 element: pager
@@ -64,6 +79,20 @@ var MvcGrid = (function () {
         this.bindPager(this);
         this.bindGrid(this);
         this.clean(this);
+
+        // BEGIN modified
+        if (!isSorted && isLoaded) {
+            var gridData = JSON.parse(localStorage.getItem("gridData"));
+            if (gridData[this.name] != null && gridData[this.name]["columnIndex"] < this.columns.length && this.columns[gridData[this.name]["columnIndex"]].sort) {
+                this.columns[gridData[this.name]["columnIndex"]].sort.order = gridData[this.name]["sortAsc"] ? "Desc" : "Asc";
+                this.applySort(this, this.columns[gridData[this.name]["columnIndex"]]);
+                $(grid).addClass("loading");
+                this.reload(this);
+            }
+        } else {
+            $(grid).removeClass("loading");
+        }
+        // END modified
     }
 
     MvcGrid.prototype = {
@@ -100,6 +129,9 @@ var MvcGrid = (function () {
         set: function (grid, options) {
             grid.filters = $.extend(grid.filters, options.filters);
             grid.rowClicked = options.rowClicked || grid.rowClicked;
+            // BEGIN modified
+            grid.cellClicked = options.cellClicked || grid.cellClicked;
+            // END modified
             grid.reloadEnded = options.reloadEnded || grid.reloadEnded;
             grid.reloadFailed = options.reloadFailed || grid.reloadFailed;
             grid.reloadStarted = options.reloadStarted || grid.reloadStarted;
@@ -159,6 +191,22 @@ var MvcGrid = (function () {
 
                     grid.rowClicked(grid, this, data, e);
                 }
+                // BEGIN modified
+                else if (grid.cellClicked) {
+                    var cells = $(this).parent().find('td');
+                    var data = [];
+
+                    for (var ind = 0; ind < grid.columns.length; ind++) {
+                        var column = grid.columns[ind];
+                        if (cells.length > ind && $(cells[ind]).is(this)) {
+                            data[column.name] = $(cells[ind]).text();
+                            break;
+                        }
+                    }
+
+                    grid.cellClicked(grid, this, data, e);
+                }
+                // END modified
             });
         },
 
@@ -174,12 +222,14 @@ var MvcGrid = (function () {
                 }).success(function (result) {
                     grid.element.hide();
                     grid.element.after(result);
-
                     var newGrid = grid.element.next('.mvc-grid').mvcgrid({
                         reloadStarted: grid.reloadStarted,
                         reloadFailed: grid.reloadFailed,
                         reloadEnded: grid.reloadEnded,
                         rowClicked: grid.rowClicked,
+                        // BEGIN modified
+                        cellClicked: grid.cellClicked,
+                        // END modified
                         sourceUrl: grid.sourceUrl,
                         filters: grid.filters,
                         query: grid.query,
@@ -273,6 +323,15 @@ var MvcGrid = (function () {
             if (!column.sort.order && column.sort.firstOrder) {
                 order = column.sort.firstOrder;
             }
+
+            // BEGIN modified
+            var gridData = JSON.parse(localStorage.getItem("gridData"));
+            if (gridData[grid.name] != null) {
+                gridData[grid.name]["columnIndex"] = grid.columns.indexOf(column);
+                gridData[grid.name]["sortAsc"] = order == "Asc";
+                localStorage.setItem("gridData", JSON.stringify(gridData));
+            }
+            // END modified
 
             grid.queryAdd(grid, grid.name + '-Order', order);
         },

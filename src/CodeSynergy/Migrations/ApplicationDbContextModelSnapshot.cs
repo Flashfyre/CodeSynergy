@@ -22,7 +22,13 @@ namespace CodeSynergy.Migrations
 
                     b.Property<int>("AccessFailedCount");
 
+                    b.Property<int>("AnswerScore")
+                        .HasColumnType("int");
+
                     b.Property<int>("AnswersPosted")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BestAnswerCount")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("BirthDate")
@@ -30,6 +36,9 @@ namespace CodeSynergy.Migrations
 
                     b.Property<string>("City")
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("CommentScore")
+                        .HasColumnType("int");
 
                     b.Property<int>("CommentsPosted")
                         .HasColumnType("int");
@@ -48,6 +57,9 @@ namespace CodeSynergy.Migrations
                         .HasAnnotation("MaxLength", 256);
 
                     b.Property<bool>("EmailConfirmed");
+
+                    b.Property<bool>("ExcludeFromRanking")
+                        .HasColumnType("bit");
 
                     b.Property<string>("FirstName")
                         .HasColumnType("nvarchar(40)");
@@ -77,6 +89,9 @@ namespace CodeSynergy.Migrations
                     b.Property<string>("NormalizedUserName")
                         .HasAnnotation("MaxLength", 256);
 
+                    b.Property<bool>("Online")
+                        .HasColumnType("bit");
+
                     b.Property<string>("PasswordHash");
 
                     b.Property<string>("PhoneNumber");
@@ -87,9 +102,13 @@ namespace CodeSynergy.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ProfileMessage")
-                        .HasColumnType("nvarchar(MAX)");
+                        .IsRequired()
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<int>("ProfileViewCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuestionScore")
                         .HasColumnType("int");
 
                     b.Property<int>("QuestionsPosted")
@@ -106,10 +125,16 @@ namespace CodeSynergy.Migrations
 
                     b.Property<string>("SecurityStamp");
 
-                    b.Property<byte>("Status")
-                        .HasColumnType("tinyint");
+                    b.Property<int>("StarCount")
+                        .HasColumnType("int");
 
                     b.Property<bool>("TwoFactorEnabled");
+
+                    b.Property<bool>("UseProfileBackground")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("UseSearchGrid")
+                        .HasColumnType("bit");
 
                     b.Property<string>("UserName")
                         .HasAnnotation("MaxLength", 256);
@@ -166,6 +191,74 @@ namespace CodeSynergy.Migrations
                     b.ToTable("Ban");
                 });
 
+            modelBuilder.Entity("CodeSynergy.Models.Comment", b =>
+                {
+                    b.Property<int>("QuestionID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuestionPostID")
+                        .HasColumnType("int");
+
+                    b.Property<short>("PostCommentID")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Contents")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<bool>("DeletedFlag")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("EditDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PostDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<short>("Score")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("UserID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("QuestionID", "QuestionPostID", "PostCommentID");
+
+                    b.HasIndex("QuestionID");
+
+                    b.HasIndex("UserID");
+
+                    b.HasIndex("QuestionID", "QuestionPostID");
+
+                    b.ToTable("Comment");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.CommentVote", b =>
+                {
+                    b.Property<int>("QuestionID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuestionPostID")
+                        .HasColumnType("int");
+
+                    b.Property<short>("PostCommentID")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("UserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("Vote")
+                        .HasColumnType("bit");
+
+                    b.HasKey("QuestionID", "QuestionPostID", "PostCommentID", "UserID");
+
+                    b.HasIndex("UserID");
+
+                    b.HasIndex("QuestionID", "QuestionPostID", "PostCommentID");
+
+                    b.ToTable("CommentVote");
+                });
+
             modelBuilder.Entity("CodeSynergy.Models.Country", b =>
                 {
                     b.Property<string>("ISO")
@@ -192,7 +285,83 @@ namespace CodeSynergy.Migrations
                     b.ToTable("Country");
                 });
 
-            modelBuilder.Entity("CodeSynergy.Models.Post", b =>
+            modelBuilder.Entity("CodeSynergy.Models.ModerationMailboxItem", b =>
+                {
+                    b.Property<int>("MailboxItemID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ActionTaken")
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime?>("AssignedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AssigneeUserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AssignerUserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("DeletedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("ReadFlag")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ReportID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ResolvedDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("MailboxItemID");
+
+                    b.HasIndex("AssigneeUserID");
+
+                    b.HasIndex("AssignerUserID");
+
+                    b.HasIndex("ReportID");
+
+                    b.ToTable("ModerationMailboxItem");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.PrivateMessage", b =>
+                {
+                    b.Property<long>("PrivateMessageID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Contents")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime?>("DeletedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RecipientUserID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("SenderUserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("SentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("PrivateMessageID");
+
+                    b.HasIndex("RecipientUserID");
+
+                    b.HasIndex("SenderUserID");
+
+                    b.ToTable("PrivateMessage");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.QAPost", b =>
                 {
                     b.Property<int>("QuestionID")
                         .HasColumnType("int");
@@ -202,7 +371,7 @@ namespace CodeSynergy.Migrations
 
                     b.Property<string>("Contents")
                         .IsRequired()
-                        .HasColumnType("nvarchar(MAX)");
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<bool>("DeletedFlag")
                         .HasColumnType("bit");
@@ -215,9 +384,6 @@ namespace CodeSynergy.Migrations
 
                     b.Property<short>("Score")
                         .HasColumnType("smallint");
-
-                    b.Property<DateTime?>("SolvedDate")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("UserID")
                         .IsRequired()
@@ -232,22 +398,45 @@ namespace CodeSynergy.Migrations
                     b.ToTable("Post");
                 });
 
+            modelBuilder.Entity("CodeSynergy.Models.QAPostVote", b =>
+                {
+                    b.Property<int>("QuestionID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuestionPostID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("Vote")
+                        .HasColumnType("bit");
+
+                    b.HasKey("QuestionID", "QuestionPostID", "UserID");
+
+                    b.HasIndex("UserID");
+
+                    b.HasIndex("QuestionID", "QuestionPostID");
+
+                    b.ToTable("PostVote");
+                });
+
             modelBuilder.Entity("CodeSynergy.Models.Question", b =>
                 {
                     b.Property<int>("QuestionID")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    b.Property<int?>("DupeOriginalID")
+                    b.Property<int?>("BestAnswerQuestionPostID")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("EditDate")
-                        .HasColumnType("datetime2");
+                    b.Property<int>("DupeOriginalID")
+                        .HasColumnType("int");
 
-                    b.Property<bool>("LockedFlag")
-                        .HasColumnType("bit");
+                    b.Property<string>("LockedByUserID")
+                        .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("PostDate")
+                    b.Property<DateTime?>("LockedDate")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("SolvedDate")
@@ -262,7 +451,76 @@ namespace CodeSynergy.Migrations
 
                     b.HasKey("QuestionID");
 
+                    b.HasIndex("LockedByUserID");
+
                     b.ToTable("Question");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.QuestionTag", b =>
+                {
+                    b.Property<int>("QuestionID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TagID")
+                        .HasColumnType("int");
+
+                    b.HasKey("QuestionID", "TagID");
+
+                    b.HasIndex("QuestionID");
+
+                    b.HasIndex("TagID");
+
+                    b.ToTable("QuestionTag");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.Ranking", b =>
+                {
+                    b.Property<byte>("RankingCategoryID")
+                        .HasColumnType("tinyint");
+
+                    b.Property<short>("RankingPosID")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("RankingCategoryID", "RankingPosID");
+
+                    b.HasIndex("RankingCategoryID");
+
+                    b.HasIndex("RankingPosID");
+
+                    b.HasIndex("UserID");
+
+                    b.ToTable("Ranking");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.RankingCategory", b =>
+                {
+                    b.Property<byte>("RankingCategoryID")
+                        .HasColumnType("tinyint");
+
+                    b.Property<string>("RankingName")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("RankingCategoryID");
+
+                    b.ToTable("RankingCategory");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.RankingPos", b =>
+                {
+                    b.Property<short>("RankingPosID")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("RankingPosID");
+
+                    b.ToTable("RankingPos");
                 });
 
             modelBuilder.Entity("CodeSynergy.Models.Region", b =>
@@ -286,6 +544,97 @@ namespace CodeSynergy.Migrations
                     b.HasIndex("ISO");
 
                     b.ToTable("Region");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.Report", b =>
+                {
+                    b.Property<int>("ReportID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReportReason")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<byte>("ReportTypeID")
+                        .HasColumnType("tinyint");
+
+                    b.Property<short?>("ReportedPostCommentID")
+                        .HasColumnType("smallint");
+
+                    b.Property<long?>("ReportedPrivateMessageID")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("ReportedQuestionID")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ReportedQuestionPostID")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReportedUserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("SenderUserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("SentDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ReportID");
+
+                    b.HasIndex("ReportedPrivateMessageID");
+
+                    b.HasIndex("ReportedQuestionID");
+
+                    b.HasIndex("ReportedUserID");
+
+                    b.HasIndex("SenderUserID");
+
+                    b.HasIndex("ReportedQuestionID", "ReportedQuestionPostID");
+
+                    b.HasIndex("ReportedQuestionID", "ReportedQuestionPostID", "ReportedPostCommentID");
+
+                    b.ToTable("Report");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.RepVote", b =>
+                {
+                    b.Property<string>("VoteeUserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("VoterUserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("Vote")
+                        .HasColumnType("bit");
+
+                    b.HasKey("VoteeUserID", "VoterUserID");
+
+                    b.HasIndex("VoteeUserID");
+
+                    b.HasIndex("VoterUserID");
+
+                    b.ToTable("RepVote");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.Star", b =>
+                {
+                    b.Property<string>("UserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("QuestionID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StarredDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("UserID", "QuestionID");
+
+                    b.HasIndex("QuestionID");
+
+                    b.HasIndex("UserID");
+
+                    b.ToTable("Star");
                 });
 
             modelBuilder.Entity("CodeSynergy.Models.Tag", b =>
@@ -332,6 +681,99 @@ namespace CodeSynergy.Migrations
                     b.HasIndex("RemovedByUserID");
 
                     b.ToTable("UntrustedURLPattern");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.UserMailbox", b =>
+                {
+                    b.Property<string>("UserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<byte>("MailboxTypeID")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("UserID", "MailboxTypeID");
+
+                    b.HasIndex("UserID");
+
+                    b.ToTable("UserMailbox");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.UserMailboxItem", b =>
+                {
+                    b.Property<string>("UserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<byte>("MailboxTypeID")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("MailboxItemID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("MarkedAsSpamDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("PrivateMessageID")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("ReadFlag")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("StarredDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("UserID", "MailboxTypeID", "MailboxItemID");
+
+                    b.HasIndex("PrivateMessageID");
+
+                    b.HasIndex("UserID");
+
+                    b.HasIndex("UserID", "MailboxTypeID");
+
+                    b.ToTable("UserMailboxItem");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.UserTag", b =>
+                {
+                    b.Property<string>("UserID")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("TagID")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AnswerCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AnswerScore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BestAnswerCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CommentCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CommentScore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuestionCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuestionScore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuestionStarCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("UserID", "TagID");
+
+                    b.HasIndex("TagID");
+
+                    b.HasIndex("UserID");
+
+                    b.ToTable("UserTag");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityRole<string>", b =>
@@ -465,11 +907,121 @@ namespace CodeSynergy.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
-            modelBuilder.Entity("CodeSynergy.Models.Post", b =>
+            modelBuilder.Entity("CodeSynergy.Models.Comment", b =>
                 {
                     b.HasOne("CodeSynergy.Models.Question", "Question")
                         .WithMany()
                         .HasForeignKey("QuestionID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "User")
+                        .WithMany("Comments")
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.QAPost", "Post")
+                        .WithMany("Comments")
+                        .HasForeignKey("QuestionID", "QuestionPostID")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.CommentVote", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.Comment", "Comment")
+                        .WithMany()
+                        .HasForeignKey("QuestionID", "QuestionPostID", "PostCommentID")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.ModerationMailboxItem", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "AssigneeUser")
+                        .WithMany()
+                        .HasForeignKey("AssigneeUserID");
+
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "AssignerUser")
+                        .WithMany()
+                        .HasForeignKey("AssignerUserID");
+
+                    b.HasOne("CodeSynergy.Models.Report", "Report")
+                        .WithMany()
+                        .HasForeignKey("ReportID")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.PrivateMessage", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "RecipientUser")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "SenderUser")
+                        .WithMany()
+                        .HasForeignKey("SenderUserID");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.QAPost", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.Question", "Question")
+                        .WithMany("Posts")
+                        .HasForeignKey("QuestionID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "User")
+                        .WithMany("QAPosts")
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.QAPostVote", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.QAPost", "Post")
+                        .WithMany()
+                        .HasForeignKey("QuestionID", "QuestionPostID")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.Question", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "LockedByUser")
+                        .WithMany()
+                        .HasForeignKey("LockedByUserID");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.QuestionTag", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.Question", "Question")
+                        .WithMany("QuestionTags")
+                        .HasForeignKey("QuestionID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.Tag", "Tag")
+                        .WithMany()
+                        .HasForeignKey("TagID")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.Ranking", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.RankingCategory", "RankingCategory")
+                        .WithMany()
+                        .HasForeignKey("RankingCategoryID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.RankingPos", "RankingPos")
+                        .WithMany("Rankings")
+                        .HasForeignKey("RankingPosID")
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("CodeSynergy.Models.ApplicationUser", "User")
@@ -483,6 +1035,59 @@ namespace CodeSynergy.Migrations
                     b.HasOne("CodeSynergy.Models.Country", "Country")
                         .WithMany()
                         .HasForeignKey("ISO")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.Report", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.PrivateMessage", "ReportedPrivateMessage")
+                        .WithMany()
+                        .HasForeignKey("ReportedPrivateMessageID");
+
+                    b.HasOne("CodeSynergy.Models.Question", "ReportedQuestion")
+                        .WithMany()
+                        .HasForeignKey("ReportedQuestionID");
+
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "ReportedUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedUserID");
+
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "SenderUser")
+                        .WithMany()
+                        .HasForeignKey("SenderUserID");
+
+                    b.HasOne("CodeSynergy.Models.QAPost", "ReportedAnswer")
+                        .WithMany()
+                        .HasForeignKey("ReportedQuestionID", "ReportedQuestionPostID");
+
+                    b.HasOne("CodeSynergy.Models.Comment", "ReportedComment")
+                        .WithMany()
+                        .HasForeignKey("ReportedQuestionID", "ReportedQuestionPostID", "ReportedPostCommentID");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.RepVote", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "VoteeUser")
+                        .WithMany()
+                        .HasForeignKey("VoteeUserID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "VoterUser")
+                        .WithMany()
+                        .HasForeignKey("VoterUserID")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.Star", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.Question", "Question")
+                        .WithMany("Stars")
+                        .HasForeignKey("QuestionID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "User")
+                        .WithMany("Stars")
+                        .HasForeignKey("UserID")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
@@ -500,6 +1105,45 @@ namespace CodeSynergy.Migrations
                     b.HasOne("CodeSynergy.Models.ApplicationUser", "RemovedByUser")
                         .WithMany()
                         .HasForeignKey("RemovedByUserID");
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.UserMailbox", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.UserMailboxItem", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.PrivateMessage", "PrivateMessage")
+                        .WithMany()
+                        .HasForeignKey("PrivateMessageID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.UserMailbox", "Mailbox")
+                        .WithMany("UserItems")
+                        .HasForeignKey("UserID", "MailboxTypeID")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("CodeSynergy.Models.UserTag", b =>
+                {
+                    b.HasOne("CodeSynergy.Models.Tag", "Tag")
+                        .WithMany()
+                        .HasForeignKey("TagID")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("CodeSynergy.Models.ApplicationUser", "User")
+                        .WithMany("UserTags")
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.EntityFrameworkCore.IdentityRoleClaim<string>", b =>

@@ -14,15 +14,15 @@ namespace CodeSynergy.Controllers
     [Authorize]
     public class ManageController : Controller
     {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly UserManager _userManager;
+        private readonly SignInManager _signInManager;
         private readonly IEmailSender _emailSender;
         private readonly ISmsSender _smsSender;
         private readonly ILogger _logger;
 
         public ManageController(
-        UserManager<ApplicationUser> userManager,
-        SignInManager<ApplicationUser> signInManager,
+        UserManager userManager,
+        SignInManager signInManager,
         IEmailSender emailSender,
         ISmsSender smsSender,
         ILoggerFactory loggerFactory)

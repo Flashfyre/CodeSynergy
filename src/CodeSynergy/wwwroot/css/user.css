@@ -1,0 +1,105 @@
+﻿h2, h3 {
+    margin-top: 10px;
+}
+
+.btn-edit {
+    color: #004080;
+    cursor: pointer;
+}
+
+img#profile-image {
+    margin-bottom: 0.5em;
+}
+
+@media (min-width: 768px) {
+  img#profile-image {
+        width: 100%;
+        height: 100%;
+    }
+
+  table {
+        width: 100%;
+    }
+}
+
+#btn-edit-profile-image, #profile-image-form, #btn-edit-background-image, #background-image-form {
+    margin-bottom: 0.5em;
+}
+
+#profile-image-form tr:first-child > td, #background-image-form tr:first-child > td {
+    padding-bottom: 0.5em;
+}
+
+#profile-image-form tr:nth-child(2) > td:first-child, #background-image-form tr:nth-child(2) > td:first-child {
+    padding-right: 0.5em;
+}
+
+#profile-image-form tr:nth-child(2) > td:nth-child(2), #background-image-form tr:nth-child(2) > td:nth-child(2) {
+    padding-left: 0.5em;
+}
+
+.btn-upvote {
+    color: #40b040;
+}
+
+.btn-downvote {
+    color: #b04040;
+}
+
+.btn-upvote, .btn-downvote, .btn-private-message, .btn-report, .btn-ban {
+    cursor: pointer;
+}
+
+.btn-upvote.disabled, .btn-downvote.disabled {
+    cursor: not-allowed;
+}
+
+.btn-upvote, .btn-downvote, .btn-private-message, .btn-report, .btn-ban {
+    transition: all 0.2s ease-in;
+}
+
+.btn-upvote.not-voted:not(:hover), .btn-upvote.disabled, .btn-downvote.not-voted:not(:hover), .btn-downvote.disabled {
+    opacity: 0.25;
+}
+
+.btn-report:hover, .btn-ban:hover {
+     color: #800000;
+}
+
+#user-table > tbody > tr > td:nth-child(2) {
+    text-align: right;
+}
+
+#user-table > tbody > tr > td:nth-child(3) > h4 {
+    white-space: nowrap;
+}
+
+#user-table > tbody > tr > td:not(:first-child) {
+    vertical-align: bottom;
+    white-space: nowrap;
+}
+
+#user-table > tbody > tr:nth-child(3) > td > p {
+    float: left;
+}
+
+#user-table h3#user-job-title, #user-table h3#user-location {
+    color: #808080;
+}
+
+#user-stats-table > tbody > tr > td:first-child {
+    text-align: right;
+    padding-right: 0.5em;
+}
+
+#userPostGrid > table.table > tbody > tr > td:nth-child(4) {
+    vertical-align: middle;
+}
+
+#main .mvc-grid {
+    overflow-x: auto;
+}
+
+#main .mvc-grid th {
+    text-align: center;
+}

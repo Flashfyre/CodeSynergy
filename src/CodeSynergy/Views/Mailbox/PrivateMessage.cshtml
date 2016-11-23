@@ -1,0 +1,54 @@
+﻿@model PrivateMessage
+
+@inject UserManager UserManager
+
+@{ 
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+    ApplicationUser sender = Model.SenderUser;
+    bool showBanButton = Model.SenderUserID != user.Id && (user.Role == "Moderator" || user.Role == "Administrator") && (Model.SenderUser.Role == "Member" || (user.Role == "Administrator" && Model.SenderUser.Role == "Moderator") || (user.Email == "admin@codesynergy.com"));
+}
+
+<link rel="stylesheet" href="~/css/prism.css" type="text/css" />
+<script type="text/javascript" src="~/js/prism.js"></script>
+
+<div id="mailbox-item-table-container" class="table-responsive">
+    <table id="mailboxItemTable">
+        <tbody>
+            <tr>
+                <td class="message-title" colspan="3">
+                    <h4>Subject: @Model.Summary</h4>
+                </td>
+            </tr>
+            <tr>
+                @if (sender != null)
+                {
+                    <td class="message-profile-image" rowspan="2">
+                        <img src="@Html.Raw(sender.ProfileImageUrl)" class="profile-image" width=48 height=48 />
+                    </td>
+                }
+                <td class="message-display-name">
+                    <label>@{ @Html.Raw(sender != null ? sender.GetFullFormattedDisplayName(UserManager as UserManager, true) : "Guest"); }</label>
+                </td>
+                <td class="message-sent-date">
+                    <span title="@Model.SentDate">@Model.GetTimeSinceSentDate()</span>
+                </td>
+                @if (showBanButton)
+                {
+                    <td class="message-ban">
+                        <i class="fa fa-gavel fa-2x btn-ban" data-display-name="@Model.SenderUser.DisplayName"></i>
+                    </td>
+                }
+            </tr>
+            <tr>
+                <td colspan="3">
+                    @sender.JobTitle
+                </td>
+            </tr>
+            <tr>
+                <td class="message-body" colspan="4">
+                    @Html.Raw(Model.Contents)
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>

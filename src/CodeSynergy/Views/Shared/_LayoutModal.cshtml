@@ -1,2 +1,11 @@
-﻿@RenderBody()
-@RenderSection("scripts", required: false)
+﻿<div id="modal-header">
+    <div class="nowrap"><h2>@ViewData["Title"]</h2></div>
+    <hr />
+</div>
+<div id="modal-content">
+    <div>
+        @RenderBody()
+    </div>
+</div>
+
+ @RenderSection("scripts", required: false)

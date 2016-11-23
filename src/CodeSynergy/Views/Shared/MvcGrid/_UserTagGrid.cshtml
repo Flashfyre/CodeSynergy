@@ -1,0 +1,31 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@model IEnumerable<UserTag>
+
+@{
+    const string gridName = "userTagGrid";
+    int sortIndex = (int) ViewData["columnIndex"];
+    bool sortAsc = (bool) ViewData["sortAsc"];
+}
+
+@(Html.Grid(Model).Named(gridName).Build(columns =>
+{
+    columns.Add(model => model.TagID).Titled("Hidden ID").Css("hidden");
+    columns.Add(model => model.Tag.TagName).Titled("").Encoded(false).RenderedAs(model => "<span class=\"tag\" style=\"float: right;\">" + model.Tag.TagName + "</span>");
+    columns.Add(model => model.QuestionScore).Titled("Question Score").Encoded(false).RenderedAs(model => "<h3>" + model.QuestionScore + "</h3>").Css("center");
+    columns.Add(model => model.AnswerScore).Titled("Answer Score").Encoded(false).RenderedAs(model => "<h3>" + model.AnswerScore + "</h3>").Css("center");
+    columns.Add(model => model.CommentScore).Titled("Comment Score").Encoded(false).RenderedAs(model => "<h3>" + model.CommentScore + "</h3>").Css("center");
+    columns.Add(model => model.TotalScore).Titled("Total Score").Encoded(false).RenderedAs(model => "<h3>" + model.TotalScore + "</h3>").Css("center");
+    columns.Add(model => model.BestAnswerCount).Titled("Best Answers").Encoded(false).RenderedAs(model => "<h3>" + model.BestAnswerCount + "</h3>").Css("center");
+    columns.Add(model => model.QuestionStarCount).Titled("Question Stars").Encoded(false).RenderedAs(model => "<h3>" + model.QuestionStarCount + "</h3>").Css("center");
+    columns.Add(model => model.QuestionCount).Titled("Questions Posted").Encoded(false).RenderedAs(model => "<h3>" +  model.QuestionCount + "</h3>").Css("center");
+    columns.Add(model => model.AnswerCount).Titled("Answers Posted").Encoded(false).RenderedAs(model => "<h3>" + model.AnswerCount + "</h3>").Css("center");
+    columns.Add(model => model.CommentCount).Titled("Comments Posted").Encoded(false).RenderedAs(model => "<h3>" + model.CommentCount + "</h3>").Css("center");
+    columns.Add(model => model.TotalPostCount).Titled("Total Posted").Encoded(false).RenderedAs(model => "<h3>" + model.TotalPostCount + "</h3>").Css("center");
+    if (sortIndex != -1 && sortIndex < columns.Count())
+        columns.ElementAt(sortIndex).InitialSort(sortAsc ? GridSortOrder.Asc : GridSortOrder.Desc);
+})
+.Empty("No user tags found")
+.Filterable()
+.Sortable()
+.Pageable(p => p.RowsPerPage = 5))

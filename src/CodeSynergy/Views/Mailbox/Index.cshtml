@@ -1,0 +1,346 @@
+﻿@model PrivateMessageViewModel
+
+@{
+    ViewData["Title"] = "Mailbox";
+}
+
+<script type="text/javascript">
+    function sortItems(mailboxType, sortType) {
+        var $items = $("#mailboxListTable" + mailboxType + " > tbody > tr.mailbox-item-row:not(.mailbox-item-row-empty)");
+
+        // Modified version of code from http://trentrichardson.com/2013/12/16/sort-dom-elements-jquery/
+        $items.sort(function (a, b) {
+            var aAttr, bAttr;
+
+            switch (Math.floor(sortType / 2)) {
+                case 0:
+                    aAttr = Date.parse($(a).find(".mailbox-item-sent-date").children("span").attr("title"));
+                    bAttr = Date.parse($(b).find(".mailbox-item-sent-date").children("span").attr("title"));
+                    break;
+                case 1:
+                    aAttr = $(a).find(".mailbox-item-summary").text();
+                    bAttr = $(b).find(".mailbox-item-summary").text();
+                    break;
+                case 2:
+                    aAttr = a.getAttribute("data-mailbox-item-sender");
+                    bAttr = b.getAttribute("data-mailbox-item-sender");
+                    break;
+                case 3:
+                    aAttr = a.getAttribute("data-sort-order");
+                    bAttr = b.getAttribute("data-sort-order");
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aAttr > bAttr)
+                return sortType % 2 == 0 ? 1 : -1;
+            else if (aAttr < bAttr)
+                return sortType % 2 == 0 ? -1 : 1;
+            return 0;
+        });
+
+        $items.detach().prependTo($("#mailboxListTable" + mailboxType));
+    }
+
+    var onMailboxItemCheckboxClick;
+
+    $(document).ready(function () {
+        onMailboxItemCheckboxClick = function () {
+            var mailboxType = $(this).parent().parent().parent().attr("data-mailbox-type-id");
+            var $table = $("#mailboxListTable" + mailboxType);
+            var selectedCount, isRead;
+            if ($table.find(".mailbox-item-select:not(:checked)").length == 0)
+                $(".mailbox-item-select-all[data-mailbox-type-id=" + mailboxType + "]").prop("checked", true);
+            else
+                $(".mailbox-item-select-all[data-mailbox-type-id=" + mailboxType + "]").prop("checked", null);
+            if ($(this).prop("checked"))
+                $(this).parent().parent().parent().addClass("selected");
+            else
+                $(this).parent().parent().parent().removeClass("selected");
+            selectedCount = $table.find(".mailbox-item-row.selected").length;
+            isUnread = selectedCount > 0 && $table.find(".mailbox-item-row.selected:not(.mailbox-item-row-unread)").length == selectedCount;
+            $(".btn-mailbox-item-select[data-mailbox-type-id=" + mailboxType + "]").prop("disabled", $table.find(".mailbox-item-select:checked").length == 0 ? true : null);
+            $(".btn-mark-read[data-mailbox-type-id=" + mailboxType + "]").html("Mark as " + (isUnread ? "Unr" : "R") + "ead");
+            console.log(mailboxType);
+            if (isUnread)
+                $(".btn-mark-read[data-mailbox-type-id=" + mailboxType + "]").addClass("undo");
+            else
+                $(".btn-mark-read[data-mailbox-type-id=" + mailboxType + "]").removeClass("undo");
+        };
+
+        $(".mailbox-sort").change(function () {
+            sortItems($(this).attr("data-mailbox-type-id"), $(this).val());
+        });
+
+        $(".mailbox-search").on("input", function() {
+            var $search = $(this);
+            var text = $search.val();
+            window.setTimeout(function() {
+                if (text == $search.val()) {
+                    var mailboxType = $search.attr("data-mailbox-type-id");
+                    var searchTerm = $search.val().toLocaleLowerCase();
+                    var $sort = $(".mailbox-sort[data-mailbox-type-id=" + mailboxType + "]");
+           
+                    if (searchTerm != "") {
+                        $("#mailboxListTable" + mailboxType).addClass("loading");
+                        $.ajax({
+                            type: "POST",
+                            url: '/Mailbox/SearchItems',
+                            contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                            data: {
+                                MailboxTypeID: mailboxType,
+                                SearchTerm: searchTerm
+                            },
+                            dataType: "json",
+                            success: function (data) {
+                                if (data[0]) {
+                                    if (searchTerm == $search.val()) {
+                                        if ($sort.find("option[value=6], option[value=7]").length === 0) {
+                                            var prevSortVal = $sort.val();
+                                            $sort.attr("data-prev-sort-val", prevSortVal).children(":selected").attr("selected", null);
+                                            $sort.prepend('<option value="7">Relevance (Asc)</option><option value="6" selected>Relevance (Desc)</option>');
+                                            window.setTimeout(function() {
+                                                sortItems(mailboxType, 6);
+                                            }, 0);
+                                        }
+                                        $("#mailboxListTable" + mailboxType).removeClass("loading").children("tbody").children("tr.mailbox-item-row").hide().attr("data-sort-order", null);
+
+                                        for (var i = 0; i < data[2].length; i++)
+                                            $("#mailboxListTable" + mailboxType + " > tbody > tr.mailbox-item-row[data-mailbox-item-id=" + data[2][i] + "]").show().attr("data-sort-order", i);
+                                    }
+                                } else
+                                    alert(data[1]);
+                            },
+                            error: function () {
+                                alert("Error: Something went wrong while attempting to search for mailbox items.");
+                                $("#mailboxListTable" + mailboxType).removeClass("loading");
+                            }
+                        });
+                    } else {
+                        $("#mailboxListTable" + mailboxType).removeClass("loading").children("tbody").children("tr.mailbox-item-row").show().attr("data-sort-order", null);
+
+                        var $relevanceOptions = $sort.find("option[value=6], option[value=7]");
+                        if ($relevanceOptions.length > 0) {
+                            var sortVal = $sort.attr("data-prev-sort-val");
+                            $relevanceOptions.remove();
+                            $sort.attr("data-prev-sort-val", null).children("option[value=" + sortVal + "]").attr("selected", true).trigger("change");
+                        }
+                    }
+                }
+            }, 500);
+        });
+
+        $(".mailbox-item-select").click(onMailboxItemCheckboxClick);
+
+        $(".mailbox-item-select-all").click(function () {
+            var checked = $(this).prop("checked");
+            var mailboxType = $(this).attr("data-mailbox-type-id");
+            var $table = $("#mailboxListTable" + mailboxType);
+            var selectedCount, isUnread;
+            $table.find(".mailbox-item-select").each(function () {
+                if ($(this).prop("checked") != checked) {
+                    $(this).prop("checked", checked);
+                    if (checked)
+                        $(this).parent().parent().parent().addClass("selected");
+                    else
+                        $(this).parent().parent().parent().removeClass("selected");
+                }
+            });
+            selectedCount = $table.find(".mailbox-item-row.selected").length;
+            isUnread = selectedCount > 0 && $table.find(".mailbox-item-row.selected:not(.mailbox-item-row-unread)").length == selectedCount;
+            $(".btn-mailbox-item-select[data-mailbox-type-id=" + mailboxType + "]").prop("disabled", $table.find(".mailbox-item-select:checked").length == 0 ? true : null);
+            $(".btn-mark-read[data-mailbox-type-id=" + mailboxType + "]").html("Mark as " + (isUnread ? "Unr" : "R") + "ead");
+            if (isUnread)
+                $(".btn-mark-read[data-mailbox-type-id=" + mailboxType + "]").addClass("undo");
+            else
+                $(".btn-mark-read[data-mailbox-type-id=" + mailboxType + "]").removeClass("undo");
+        });
+
+        $(".btn-mailbox-item-select").click(function () {
+            var $btn = $(this);
+            var mailboxType = $btn.attr("data-mailbox-type-id");
+            var $table = $("#mailboxListTable" + mailboxType);
+            var isUndo = $btn.hasClass("undo");
+            var $rows;
+            var mailboxItemIDs = [];
+            var action = !$btn.is(".btn-delete") ? "MarkItemsAs" + ($btn.is(".btn-mark-read") ? "Read" : "Spam") : "DeleteItems";
+
+            if ($btn.is(".btn-mark-read"))
+                $rows = $table.find(".mailbox-item-row.selected" + (isUndo ? ":not(.mailbox-item-row-unread)" : ".mailbox-item-row-unread"));
+            else
+                $rows = $table.find(".mailbox-item-row.selected");
+            // Display a confirmation if the action is deletion
+            if (isUndo || !$btn.is(".btn-delete") || confirm("Are you sure you want to delete the selected item(s)? (" + $rows.length + " item" + ($rows.length != 1 ? "s" : "") + " selected)")) {
+                // Add the IDs of the selected rows to the array
+                $rows.each(function () {
+                    mailboxItemIDs.push($(this).attr("data-mailbox-item-id"));
+                });
+
+                $(".btn-mailbox-item-select[data-mailbox-type-id=" + $btn.attr("data-mailbox-type-id") + "]").prop("disabled", true); // Disable the checkbox-dependent buttons for the tab that was clicked
+
+                // Post to the server to make the appropriate changes to the selected item(s)
+                $.ajax({
+                    type: "POST",
+                    url: '/Mailbox/' + action,
+                    contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                    data: {
+                        MailboxTypeID: mailboxType,
+                        MailboxItemIDs: JSON.stringify(mailboxItemIDs),
+                        IsUndo: isUndo
+                    },
+                    dataType: "json",
+                    success: function (data) {
+                        // If action succeeded
+                        if (data[0]) {
+                            // If marking as read or unread
+                            if ($btn.is(".btn-mark-read")) {
+                                if (isUndo)
+                                    $btn.html("Mark as Read");
+                                else
+                                    $btn.html("Mark as Unread");
+                                $btn.toggleClass("undo"); // Toggle the button's undo class so that it performs the opposite function next time it's clicked, even if checkboxes aren't changed
+                                // Loop through the selected rows
+                                $rows.each(function () {
+                                    if (mailboxType.toString() != "@((byte) EnumMailboxType.Moderation)") {
+                                        // Toggle the unread class of any items with the same private message id as this item
+                                        if (isUndo)
+                                            $(".mailbox-list-table > tbody > tr.mailbox-item-row[data-private-message-id=" + $(this).attr("data-private-message-id") + "]").addClass("mailbox-item-row-unread");
+                                        else
+                                            $(".mailbox-list-table > tbody > tr.mailbox-item-row[data-private-message-id=" + $(this).attr("data-private-message-id") + "]").removeClass("mailbox-item-row-unread");
+                                    } else {
+                                        // Toggle the unread class of this item
+                                        if (isUndo)
+                                            $(this).addClass("mailbox-item-row-unread");
+                                        else
+                                            $(this).removeClass("mailbox-item-row-unread");
+                                    }
+                                });
+                            } else if (isUndo) { // If removing from spam or undeleting
+                                // Loop through the selected rows
+                                $rows.each(function () {
+                                    if (mailboxType.toString() != "@((byte) EnumMailboxType.Moderation)") { // If the mailbox type is not moderation
+                                        var privateMessageID = $(this).attr("data-private-message-id");
+                                        // Unhide the hidden inbox/sent item(s) matching the deleted item, hide the table placeholder(s) if necessary, and uncheck the select all if necessary
+                                        $(".mailbox-list-table > tbody > tr.mailbox-item-row[data-private-message-id=" + $(this).attr("data-private-message-id") + "]").each(function() {
+                                            $(this).removeClass("hidden");
+                                            $(this).parent().find("tr.mailbox-item-row-empty").addClass("hidden");
+                                            $(".mailbox-item-select-all[data-mailbox-type-id=" + $(this).attr("data-mailbox-type-id") + "]").prop("checked", null);
+                                        });
+                                        $(this).remove();
+                                        if ($(this).hasClass("open")) { // If the private message for this item is open
+                                            // If the open message is from the item that was just removed, change the item/type ids of the open message to the first match in other inboxes to avoid conflicts
+                                            if ($("#mailboxItemTable [data-mailbox-type-id]").attr("data-mailbox-type-id") == mailboxType) {
+                                                var $newSelectedRow = $(".mailbox-item-row[data-private-message-id=" + privateMessageID + "]:not(.hidden):first");
+                                                $("#mailboxItemTable [data-mailbox-type-id]").attr("data-mailbox-type-id", $newSelectedRow.attr("data-mailbox-type-id"))
+                                                    .attr("data-mailbox-item-id", $newSelectedRow.attr("data-mailbox-item-id"));
+                                            }
+                                        }
+                                    } else
+                                        $(this).remove(); // Remove the deleted/spam item
+                                });
+                                // Show the placeholder for the table if necessary
+                                if ($table.find("tr.mailbox-item-row:not(.hidden)").length === 0)
+                                    $table.find("tr.mailbox-item-row-empty").removeClass("hidden");
+                            } else { // If marking as spam or deleting
+                                var newItemIDs = data[3]; // Array of new spam/deleted item IDs to assign to the new item elements
+                                // Loop through the selected rows
+                                $rows.each(function () {
+                                    $(this).find(".mailbox-item-select").trigger("click"); // Simulate a click on this item's checkbox
+                                    if (mailboxType.toString() != "@((byte) EnumMailboxType.Moderation)") { // If the mailbox type is not moderation
+                                        if ($(this).hasClass("mailbox-item-row-starred")) { // If the item is starred
+                                            // Remove the starred class and starred item from the starred mailbox to reflect the server-side changes
+                                            $(this).removeClass("mailbox-item-row-starred");
+                                            $("#mailboxListTable@{@Html.Raw((byte) EnumMailboxType.Starred);} > tbody > tr.mailbox-item-row[data-private-message-id=" + $(this).attr("data-private-message-id") + "]").remove();
+                                        }
+                                        // Create a copy of this item with the appropriate data changes
+                                        var $newItem = $(this).clone(true).attr("data-mailbox-type-id", $btn.is(".btn-mark-spam") ? @((byte) EnumMailboxType.Spam) : @((byte) EnumMailboxType.Deleted))
+                                            .attr("data-mailbox-item-id", newItemIDs.shift());
+                                        $newItem.find(".mailbox-item-select").attr("name", "select-" + $newItem.attr("data-mailbox-type-id") + "-" + $newItem.attr("data-mailbox-item-id"))
+                                            .prop("checked", null); // Set the new item's checkbox's new name, uncheck its checkbox
+                                        // Hide the inbox/sent/spam item(s)
+                                        $(".mailbox-list-table > tbody > tr.mailbox-item-row[data-private-message-id=" + $(this).attr("data-private-message-id") + "]").addClass("hidden");
+                                        $("#mailboxListTable" + $newItem.attr("data-mailbox-type-id") + " > tbody").append($newItem); // Append the new item to the appropriate tab
+                                        $("#mailboxListTable" + $newItem.attr("data-mailbox-type-id") + " > tbody > tr.mailbox-item-row-empty").addClass("hidden"); // Hide the empty placeholder if necessary
+                                        $(".mailbox-sort[data-mailbox-type-id=" + $newItem.attr("data-mailbox-type-id") + "]").trigger("change"); // Sort the items so that the new item is in its correct position
+                                        $(this).removeClass("selected");
+                                    } else
+                                        $(this).remove(); // Remove the moderation item
+                                });
+                                // Show or hide the placeholder for the table if necessary
+                                if ($table.find("tr.mailbox-item-row:not(.hidden)").length > 0)
+                                    $table.find("tr.mailbox-item-row-empty").addClass("hidden");
+                                else
+                                    $table.find("tr.mailbox-item-row-empty").removeClass("hidden");
+                            }
+
+                            $(".mailbox-user-unread-count > label").html(data[1]); // Update the unread items count
+
+                            if (data[1] == 0) // If the count is 0, hide the count
+                                $(".mailbox-user-unread-count").addClass("hidden");
+                            else // If the count is above 0, show the count
+                                $(".mailbox-user-unread-count").removeClass("hidden");
+
+                            if (data[2] != null) { // If the user is a moderator or administrator
+                                $(".mailbox-moderation-unread-count > label").html(data[2]); // Update the moderation items count
+
+                                if (data[2] == 0) // If the count is 0, hide the count
+                                    $(".mailbox-moderation-unread-count").addClass("hidden");
+                                else // If the count is above 0, show the count
+                                    $(".mailbox-moderation-unread-count").removeClass("hidden");
+
+                                if (data[1] > 0 && data[2] > 0) // If the user and moderation item counts are both visible, add the stack class to the moderation count
+                                    $(".mailbox-moderation-unread-count").addClass("stack");
+                                else // If only one count is visible, hide the stack class
+                                    $(".mailbox-moderation-unread-count").removeClass("stack");
+                            }
+                        } else // If the action failed, output the error message
+                            alert(data[1]);
+
+                        // Re-enable the buttons if necessary
+                        if ($table.find(".mailbox-item-row.selected").length > 0)
+                            $(".btn-mailbox-item-select[data-mailbox-type-id=" + $btn.attr("data-mailbox-type-id") + "]").prop("disabled", null);
+                    },
+                    error: function () {
+                        // Display an error message appropriate to the type of button
+                        alert("Error: Something went wrong while attempting to " + (!$btn.is(".btn-delete") ? ($btn.is(".btn-mark-read") ? "mark the selected item(s) as " + (isUndo ? "un" : "") + "read" :
+                            (isUndo ? "remove the selected item(s) from" : "mark the selected item(s) as") + " spam") : (isUndo ? "un" : "") + "delete the selected item(s)") + ".");
+                        // Re-enable the buttons if necessary
+                        if ($table.find(".mailbox-item-row.selected").length > 0)
+                            $(".btn-mailbox-item-select[data-mailbox-type-id=" + $btn.attr("data-mailbox-type-id") + "]").prop("disabled", null);
+                    }
+                });
+            }
+        });
+    });
+</script>
+
+<link rel="stylesheet" href="~/css/mailbox.css" type="text/css" />
+
+<ul class="nav nav-tabs">
+    @foreach (Mailbox mailbox in ViewBag.Mailboxes)
+    {
+        string tabName = ((EnumMailboxType) mailbox.MailboxTypeID).DisplayName();
+        <li @Html.Raw((ViewData["ActiveType"] != null && mailbox.MailboxTypeID == (byte) ViewData["ActiveType"]) || (ViewData["ActiveType"] == null && mailbox.MailboxTypeID == 0) ? "class=\"active\"" : "")><a data-toggle="tab" href="#@tabName.ToLower()">@tabName</a></li>
+    }
+</ul>
+
+<div id="mailbox-list-container" class="col-md-6 tab-content">
+    @foreach (Mailbox mailbox in ViewBag.Mailboxes)
+    {
+        @await Html.PartialAsync("_MailboxItemsPartial", new MailboxListViewModel() { Mailbox = mailbox, IsActive = mailbox.MailboxTypeID == (byte) ViewData["ActiveType"], ReturnUrl = (string) ViewData["ReturnUrl"] })
+    }
+</div>
+<div id="mailbox-content-container" class="col-md-6">
+    @if ((bool) ViewData["IsNewMessage"])
+    {
+        @await Html.PartialAsync("NewMessage", (PrivateMessageViewModel) ViewBag.MessageModel)
+    } else if (ViewData["ActiveItem"] != null)
+    {
+        @await Html.PartialAsync((ViewBag.MessageModel is PrivateMessageViewModel ? "User" : "Moderation") + "MailboxItem", (MessageViewModel) ViewBag.MessageModel)
+    }
+    else if (ViewBag.PrivateMessage != null)
+    {
+        @await Html.PartialAsync("PrivateMessage", (PrivateMessage) ViewBag.PrivateMessage)
+    }
+</div>

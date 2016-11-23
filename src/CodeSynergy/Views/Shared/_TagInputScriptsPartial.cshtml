@@ -1,0 +1,159 @@
+@model TagInputViewModel
+
+<style type="text/css">
+    .popup-group #tagInputContainer {
+        min-width: 124px;
+    }
+
+    #tagInputContainer {
+        padding: 0;
+        min-height: 56px;
+        display: flex;
+    }
+
+    #tagInput {
+        border: none;
+        height: 100%;
+        width: 100%;
+        padding: 0 10px;
+        background: transparent;
+    }
+
+    #tagInputContainer > .tag {
+        height: 44.5px;
+        padding-right: 5px;
+    }
+</style>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        initTagInput();
+        @if (Model.Tags.Any())
+        {
+            string tagString = "";
+            foreach (Tag t in Model.Tags)
+            {
+                tagString += t.TagName + " ";
+            }
+            @Html.Raw("$(\"#tagInput\").val(\"" + tagString + "\").trigger(jQuery.Event(\"keypress\", { keyCode: 0 }));");
+        }
+    });
+
+    function initTagInput() {
+        $("#tagInput").keypress(function (e) {
+            if (e.keyCode === 0 || e.keyCode === 32) {
+                e.preventDefault();
+                var tagNameStr = $(this).val().trim().replace(/[\[\]]+/g, "");
+                if (tagNameStr.length != 0) {
+                    var tagNames = tagNameStr.split(" ");
+                    for (var t in tagNames) {
+                        var tagName = tagNames[t];
+                        if ($("#tagInputContainer > .tag[data-tag-name='" + tagName.toLowerCase() + "']").length == 0) {
+                            $newTag = $(document.createElement("span")).addClass("tag").addClass("tag-new").attr("data-tag-name", tagName.toLowerCase()).html(tagName.replace(/\_/g, " "));
+                            $newTag.insertBefore($(this));
+                            var newTagRect = $newTag[0].getBoundingClientRect();
+                            var width = newTagRect.width;
+                            $(this).css({
+                                "margin-left": (parseFloat(window.getComputedStyle(this).marginLeft) - (width + 10)) + "px",
+                                "padding-left": (parseFloat(window.getComputedStyle(this).paddingLeft) + (width + ($("#tagInputContainer > .tag").length == 1 ? 0 : 10))) + "px"
+                            });
+
+                            window.setTimeout(function () {
+                                var $tag = $("#tagInputContainer > .tag:not([data-checked=true]):first");
+                                while ($tag[0] == undefined || $tag.children().length > 0) {
+                                    if ($tag[0] != undefined)
+                                        $tag = $tag.prev();
+                                    else
+                                        return;
+                                }
+                                $tag.attr("data-checked", true);
+                                var oldWidth = $tag[0].getBoundingClientRect().width;
+                                $tag.append($(document.createElement("a")).attr("href", "javascript:void(0)").html("&nbsp;x").click(deleteTag));
+                                var newWidth = $tag[0].getBoundingClientRect().width;
+                                $("#tagInput").css({
+                                    "margin-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).marginLeft) - (newWidth - oldWidth)) + "px",
+                                    "padding-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).paddingLeft) + (newWidth - oldWidth)) + "px"
+                                });
+
+                                $.ajax({
+                                    type: "POST",
+                                    url: '/Question/GetTagForTagName',
+                                    contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                                    data: {
+                                        tagName: $tag.attr("data-tag-name"),
+                                        __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+                                    },
+                                    dataType: "json",
+                                    success: function (data) {
+                                        $tag = $("#tagInputContainer > .tag[data-tag-name='" + data[1].toLowerCase() + "']");
+                                        var tagIndex = $tag.index();
+                                        var tagName = $tag.html().replace(/\s/g, "_").slice(0, $tag.html().indexOf("<"));
+                                        if (data[0] > 0) {
+                                            var tagID = data[0];
+                                            var oldWidth = $tag[0].getBoundingClientRect().width;
+                                            $tag.attr("data-tag-id", tagID).html((tagName = data[1]).replace(/\_/g, " ") + $tag.html().slice($tag.html().indexOf("<"))).removeClass("tag-new").children("a").click(deleteTag);
+                                            var newWidth = $tag[0].getBoundingClientRect().width;
+                                            $("#tagInput").css({
+                                                "margin-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).marginLeft) - (newWidth - oldWidth)) + "px",
+                                                "padding-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).paddingLeft) + (newWidth - oldWidth)) + "px"
+                                            });
+                                            $("#tagInputContainer").append('<input name="Tags[' + tagIndex + '].TagID" value="' + tagID + '" type="hidden" />');
+                                        }
+
+                                        $("#tagInputContainer").append('<input name="Tags[' + tagIndex + '].TagName" value="' + tagName + '" type="hidden" />');
+                                    },
+                                    error: function () { alert("Error: Something went wrong while validating the tag."); }
+                                });
+                            }, 10 * (t + 1));
+                        } else {
+                            $existingTag = $("#tagInputContainer > .tag[data-tag-name='" + tagName.toLowerCase() + "']");
+                            $existingTag.detach().insertBefore("#tagInput");
+                        }
+                    }
+                }
+                $(this).val("");
+            }
+        }).keydown(function (e) {
+            if (e.keyCode == 8 && $(this).val().length == 0 && $("#tagInputContainer > .tag").length != 0) {
+                $deletedTag = $(this).prev();
+                var width = $deletedTag[0].getBoundingClientRect().width;
+                $(this).css({
+                    "margin-left": (parseFloat(window.getComputedStyle(this).marginLeft) + width + 10) + "px",
+                    "padding-left": (parseFloat(window.getComputedStyle(this).paddingLeft) - (width + ($("#tagInputContainer > .tag").length == 1 ? 0 : 10))) + "px"
+                });
+                var tagIndex = $deletedTag.index();
+                $("#tagInputContainer > input[name=\"Tags\[" + tagIndex + "\].TagID\"], #tagInputContainer > input[name=\"Tags\[" + tagIndex + "\].TagName\"]").remove();
+                $("#tagInputContainer > .tag").each(function () {
+                    if ($(this).index() > tagIndex) {
+                        $("#tagInputContainer > input[name=\"Tags\[" + $(this).index() + "\].TagID\"]").attr("name", "Tags[" + ($(this).index() - 1) + "].TagID");
+                        $("#tagInputContainer > input[name=\"Tags\[" + $(this).index() + "\].TagName\"]").attr("name", "Tags[" + ($(this).index() - 1) + "].TagName");
+                    }
+                });
+                $deletedTag.remove();
+            }
+        });
+        if ($("#tagInput").val() != "")
+            window.setTimeout(function () {
+                $("#tagInput").trigger(jQuery.Event("keypress", { keyCode: 0 }));
+            }, 10);
+    }
+
+    function deleteTag() {
+        $deletedTag = $(this).parent();
+        var width = $deletedTag[0].getBoundingClientRect().width;
+        $("#tagInput").css({
+            "margin-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).marginLeft) + width + 10) + "px",
+            "padding-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).paddingLeft) - (width + ($("#tagInputContainer > .tag").length == 1 ? 0 : 10))) + "px"
+        });
+        var tagIndex = $deletedTag.index();
+        $("#tagInputContainer > input[name=\"Tags\[" + tagIndex + "\].TagID\"], #tagInputContainer > input[name=\"Tags\[" + tagIndex + "\].TagName\"]").remove();
+        $("#tagInputContainer > .tag").each(function () {
+            if ($(this).index() > tagIndex) {
+                $("#tagInputContainer > input[name=\"Tags\[" + $(this).index() + "\].TagID\"]").attr("name", "Tags[" + ($(this).index() - 1) + "].TagID");
+                $("#tagInputContainer > input[name=\"Tags\[" + $(this).index() + "\].TagName\"]").attr("name", "Tags[" + ($(this).index() - 1) + "].TagName");
+            }
+        });
+        $deletedTag.remove();
+        @if (Model.IsGridFilter) { @Html.Raw("return false;"); }
+    }
+</script>

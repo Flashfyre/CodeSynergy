@@ -1,0 +1,208 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@inject UserManager UserManager
+
+@model SearchViewModel
+
+@{
+    ViewData["Title"] = "Search" + (Model.SearchType != SearchViewModel.EnumSearchType.Null ? " Results for " + (Model.Query != null ? "\"" + Model.Query + "\" in " : "") + Enum.GetName(typeof(SearchViewModel.EnumSearchType), Model.SearchType) + "s" : "");
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+    TagInputViewModel tagInputViewModel = new TagInputViewModel(null, true);
+    List<SelectListItem> rowsPerPageSelectList = Html.GetEnumSelectList(typeof(SearchViewModel.EnumRowsPerPage)).ToList();
+    IEnumerable<SelectListItem> searchTypeSelectList = Html.GetEnumSelectList(typeof(SearchViewModel.EnumSearchType));
+    rowsPerPageSelectList.AsParallel().ForAll(n => n.Text = n.Text.Substring(1));
+    if (!rowsPerPageSelectList.Any(p => int.Parse(p.Value) == Model.RowsPerPage))
+    {
+        SelectListItem customRowsPerPage = new SelectListItem();
+        customRowsPerPage.Value = customRowsPerPage.Text = Model.RowsPerPage.ToString();
+        customRowsPerPage.Selected = true;
+        if (int.Parse(rowsPerPageSelectList.Last().Value) > Model.RowsPerPage)
+        {
+            rowsPerPageSelectList.Insert(rowsPerPageSelectList.IndexOf(rowsPerPageSelectList.First(p => int.Parse(p.Value) > Model.RowsPerPage)), customRowsPerPage);
+        }
+        else
+        {
+            if (Model.RowsPerPage > 1000)
+            {
+                customRowsPerPage.Text = "1000";
+                Model.RowsPerPage = 1000;
+            }
+            rowsPerPageSelectList.Add(customRowsPerPage);
+        }
+    }
+    searchTypeSelectList.AsParallel().ForAll(t => t.Text += "s");
+    searchTypeSelectList.ElementAt(0).Text = "Select a search type";
+    if (Model.SearchType != SearchViewModel.EnumSearchType.Null)
+    {
+        SelectListItem searchTypeSelectItem = searchTypeSelectList.SingleOrDefault(s => s.Value == ((int)Model.SearchType).ToString());
+        if (searchTypeSelectItem != null)
+        {
+            searchTypeSelectList.ElementAt(int.Parse(searchTypeSelectItem.Value)).Selected = true;
+        }
+    }
+}
+
+<style type="text/css">
+    .mvc-grid {
+        overflow-x: auto;
+    }
+
+   .mvc-grid td, .mvc-grid th {
+        vertical-align: middle !important;
+    }
+
+    .mvc-grid td h2, .mvc-grid td h4 {
+        margin: 0;
+        color: #333;
+    }
+
+    span.highlight {
+        background-color: #004080;
+        color: #eee;
+    }
+</style>
+
+@Html.Partial("_ProfileBackgroundPartial", user)
+
+@Html.Partial("_TagFilterPartial", tagInputViewModel)
+
+@Html.Partial("_TagInputScriptsPartial", tagInputViewModel)
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        var PostTypeSelectFilter = (function () {
+            function PostTypeSelectFilter() {
+            }
+
+            PostTypeSelectFilter.prototype = {
+                render: function (grid, popup, filter) {
+                    popup.html(
+                        '<div class="popup-arrow"></div>' +
+                        '<div class="popup-content">' +
+                            '<div class="first-filter popup-group">' +
+                                '<select class="mvc-grid-input">' +
+                                    '<option value="Question"' + (filter.first.val == "Question" ? 'selected' : '') + '>Questions</option>"' +
+                                    '<option value="Answer"' + (filter.first.val == "Answer" ? 'selected' : '') + '>Answers</option>"' +
+                                    '<option value="Comment"' + (filter.first.val == "Comment" ? 'selected' : '') + '>Comments</option>"' +
+                                '</select>' +
+                            '</div>' +
+                            '<div class="popup-button-group">' +
+                                '<button class="btn btn-success mvc-grid-apply" type="button">✔</button>' +
+                                '<button class="btn btn-danger mvc-grid-cancel" type="button">✘</button>' +
+                            '</div>' +
+                        '</div>'
+                    );
+                },
+                init: function (grid, column, popup) {
+                    this.bindValue(grid, column, popup);
+                    this.bindApply(grid, column, popup);
+                    this.bindCancel(grid, column, popup);
+                },
+                bindValue: function (grid, column, popup) {
+                    var inputs = popup.find('.mvc-grid-input');
+                    inputs.on('keyup.mvcgrid', function (e) {
+                        if (e.which == 13) {
+                            popup.find('.mvc-grid-apply').click();
+                        }
+                    });
+                },
+                bindApply: function (grid, column, popup) {
+                    var apply = popup.find('.mvc-grid-apply');
+                    apply.on('click.mvcgrid', function () {
+                        popup.removeClass('open');
+                        column.filter.first.type = 'Contains';
+                        column.filter.second.type = 'Contains';
+                        column.filter.operator = popup.find('.mvc-grid-operator').val();
+                        column.filter.first.val = popup.find('.first-filter .mvc-grid-input').val();
+                        column.filter.second.val = popup.find('.second-filter .mvc-grid-input').val();
+
+                        grid.applyFilter(grid, column);
+                        grid.reload(grid);
+                    });
+                },
+                bindCancel: function (grid, column, popup) {
+                    var cancel = popup.find('.mvc-grid-cancel');
+                    cancel.on('click.mvcgrid', function () {
+                        popup.removeClass('open');
+
+                        if (column.filter.first.type || column.filter.second.type) {
+                            grid.cancelFilter(grid, column);
+                            grid.reload(grid);
+                        }
+                    });
+                }
+            };
+
+            return PostTypeSelectFilter;
+        })();
+
+        $("#main .mvc-grid").mvcgrid({
+            filters: {
+                'TagFilter': new TagFilter(),
+                'PostTypeSelectFilter': new PostTypeSelectFilter()
+            },
+            rowClicked: function (grid, row, data, e) {
+                if (!$(row).children("td:first-child").hasClass("mvc-grid-empty")) {
+                    switch (grid.name) {
+                        case "searchQuestionGrid":
+                            window.location.href = "/Question/" + data["Object.QuestionID"];
+                            break;
+                        case "searchPostGrid":
+                        case "searchAnswerGrid":
+                            window.location.href = "/Question/" + data["Object.QuestionID"] + "#p" + data["Object.QuestionPostID"];
+                            break;
+                        case "searchUserGrid":
+                            window.location.href = "/User/" + $("<span>" + data["DisplayName"] + "</span>").text().trimLeft();
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+        });
+    });
+</script>
+
+<div class="row">
+    <div class="col-md-12">
+        <h2>@ViewData["Title"]</h2>
+        <hr />
+        <div class="row">
+            @using (Html.BeginForm("Index", "Search", FormMethod.Post, new { @id = "search-form" }))
+            {
+                <div asp-validation-summary="All" class="text-danger"></div>
+                <div class="col-md-3">
+                    @Html.TextBoxFor(model => model.Query, new { @class = "form-control", @placeholder = "Enter a search term" })
+                </div>
+                <div class="col-md-3">
+                    <select class="form-control" asp-for="@Model.SearchType">
+                        @foreach (SelectListItem t in searchTypeSelectList)
+                        {
+                            if (((int)Model.SearchType).ToString() != t.Value)
+                            {
+                                <option value=@t.Value>@t.Text</option>
+                            }
+                            else
+                            {
+                                <option value=@t.Value selected>@t.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3 center">
+                    <label>Display @Html.DropDownListFor(model => model.RowsPerPage, rowsPerPageSelectList, new { @class = "form-control", @style = "display: inline; width: inherit;" }) items per page</label>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary btn-block">@Html.Raw(Model.SearchType == SearchViewModel.EnumSearchType.Null ? "" : "Update ")Search</button>
+                </div>
+            }
+        </div>
+        <br />
+        @if (Model.SearchType != SearchViewModel.EnumSearchType.Null) {
+            <hr />
+            @Html.AjaxGrid(Url.Action("Search" + Enum.GetName(typeof(SearchViewModel.EnumSearchType), Model.SearchType) + "Grid", new { Query = Model.Query, RowsPerPage = Model.RowsPerPage }))
+        }
+    </div>
+</div>
+
+<script src="~/js/inittexteditors.js"></script>

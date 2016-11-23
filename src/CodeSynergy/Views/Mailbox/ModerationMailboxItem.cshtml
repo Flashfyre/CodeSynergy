@@ -1,0 +1,136 @@
+﻿@model ReportActionViewModel
+
+@inject UserManager UserManager
+
+@{ 
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+    ApplicationUser originalSender = Model.Item.Message.SenderUser;
+}
+
+<script type="text/javascript">
+    function init() {
+        $("#btn-assign:not(.disabled), #btn-resolve:not(.disabled)").click(function() {
+            var $btn = $(this);
+            var mailboxItemID = $btn.attr("data-mailbox-item-id");
+            var isUndo = $btn.hasClass("undo");
+            var $row = $(".mailbox-item-row[data-mailbox-type-id=@((byte) EnumMailboxType.Moderation)][data-mailbox-item-id=" + mailboxItemID + "]");
+            var action = $btn.is("#btn-assign") ? "assign" : "resolv";
+            var postData = $btn.is("#btn-assign") ?
+            {
+                MailboxItemID: mailboxItemID,
+                DisplayName: $("#select-assigned-user").val(),
+                IsUndo: isUndo
+            } :
+            {
+                MailboxItemID: mailboxItemID,
+                ActionTaken: $("#action-taken").val(),
+                IsUndo: isUndo
+            };
+
+            $btn.addClass("disabled");
+
+            $.ajax({
+                type: "POST",
+                url: '/Mailbox/' + ($btn.is("#btn-assign") ? "AssignItemToUser" : "ResolveItem"),
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                data: postData,
+                dataType: "json",
+                success: function (data) {
+                    // If action succeeded
+                    if (data[0]) {
+                        var isMatchingUser = data[3] == null || data[3] == "@user.DisplayName" || $("<span>" + data[3] + "</span>").children("a").text() == "@user.FormattedDisplayName";
+                        // Toggle the action-specific class for the row
+                        if (isUndo) {
+                            $row.removeClass("mailbox-item-row-" + action + "ed");
+                            $btn.removeClass("undo");
+                            if ($btn.is("#btn-assign")) {
+                                $("#btn-resolve").addClass("disabled").removeClass("undo").html("Mark Resolved");
+                                $row.removeClass("mailbox-item-row-resolved").find(".mailbox-item-assign, .mailbox-item-resolve").remove();
+                                $(".message-assign-info, .message-resolve-info").parent().addClass("hidden");
+                                $(".message-assign-info > .assign-info > p > .assign-info-assignee, .message-assign-info > .assign-info > p > .assign-info-assigner, "
+                                    + ".message-assign-info > .assign-info > p > .assign-info-date, .message-resolve-info > .resolve-info > p > .resolve-info-resolver, "
+                                    + ".message-resolve-info > .resolve-info > p > .resolve-info-date, .message-resolve-info > .resolve-info > p > .resolve-info-action").html("");
+                                $("#select-assigned-user").prop("disabled", null);
+                                $btn.html("Assign");
+                            } else {
+                                $row.addClass("mailbox-item-row-assigned").find(".mailbox-item-summary").append('<span class="mailbox-item-assign">&nbsp;<i class="fa fa-user"></i></span>')
+                                    .children(".mailbox-item-resolve").remove();
+                                $("#btn-assign").removeClass("disabled");
+                                $(".message-resolve-info").parent().addClass("hidden");
+                                $(".message-resolve-info > .resolve-info > p > .resolve-info-resolver, .message-resolve-info > .resolve-info > p > .resolve-info-date, "
+                                    + ".message-resolve-info > .resolve-info > p > .resolve-info-action").html("");
+                                $btn.html("Mark Resolved");
+                            }
+                        } else {
+                            $row.addClass("mailbox-item-row-" + action + "ed");
+                            $btn.addClass("undo");
+                            if ($btn.is("#btn-assign")) {
+                                if (isMatchingUser) {
+                                    $("#btn-resolve").removeClass("disabled");
+                                    $("#select-assigned-user").prop("disabled", "true");
+                                }
+                                $row.find(".mailbox-item-summary").append('<span class="mailbox-item-assign">&nbsp;<i class="fa fa-user"></i></span>');
+                                $(".message-assign-info > .assign-info > p > .assign-info-assignee").html(data[3]);
+                                $(".message-assign-info > .assign-info > p > .assign-info-assigner").html('@Html.Raw(user.GetFullFormattedDisplayName(null, true, "?Modal=Mailbox/" + Model.Item.MailboxTypeID + "/" + Model.Item.MailboxItemID))');
+                                $(".message-assign-info > .assign-info > p > .assign-info-date").html(data[4]);
+                                console.log(data[4]);
+                                $(".message-assign-info").parent().removeClass("hidden");
+                                $btn.html("Unassign");
+                            } else {
+                                $row.removeClass("mailbox-item-row-assigned");
+                                @if (user.Role != "Administrator") {
+                                    @Html.Raw("$(\"#btn-assign\").addClass(\"disabled\");");
+                                }
+                                $row.find(".mailbox-item-summary").append('<span class="mailbox-item-resolve">&nbsp;<i class="fa fa-check"></i></span>').children(".mailbox-item-assign").remove();
+                                $(".message-resolve-info > .resolve-info > p > .resolve-info-resolver").html(data[3]);
+                                $(".message-resolve-info > .resolve-info > p > .resolve-info-date").html(data[4]);
+                                $(".message-resolve-info > .resolve-info > p > .resolve-info-action").html($("#action-taken").val());
+                                $(".message-resolve-info").parent().removeClass("hidden");
+                                $btn.html("Mark Unresolved");
+                            }
+                        }
+
+                        if ($btn.is("#btn-assign") == isUndo)
+                            $("#action-taken").parent().addClass("hidden");
+                        else if (isMatchingUser)
+                            $("#action-taken").parent().removeClass("hidden");
+
+                        updateUnreadCounts(data[1], data[2]);
+                    } else // If the action failed, output the error message
+                        alert(data[1]);
+
+                    if (isMatchingUser)
+                        $btn.removeClass("disabled");
+                },
+                error: function () {
+                    // Display an error message
+                    alert("Error: Something went wrong while attempting to " + (isUndo ? "un" : "") + ($btn.is("#btn-assign") ? "assign" : "resolve") + " the mailbox item.");
+                    $btn.removeClass("disabled");
+                }
+            });
+        });
+    }
+
+    function updateUnreadCounts(userCount, moderationCount) {
+        $(".mailbox-user-unread-count > label").html(userCount); // Update the unread items count
+
+        if (userCount == 0) // If the count is 0, hide the count
+            $(".mailbox-user-unread-count").addClass("hidden");
+        else // If the count is above 0, show the count
+            $(".mailbox-user-unread-count").removeClass("hidden");
+
+        $(".mailbox-moderation-unread-count > label").html(moderationCount); // Update the moderation items count
+
+        if (moderationCount == 0) // If the count is 0, hide the count
+            $(".mailbox-moderation-unread-count").addClass("hidden");
+        else // If the count is above 0, show the count
+            $(".mailbox-moderation-unread-count").removeClass("hidden");
+
+        if (userCount > 0 && moderationCount > 0) // If the user and moderation item counts are both visible, add the stack class to the moderation count
+            $(".mailbox-moderation-unread-count").addClass("stack");
+        else // If only one count is visible, hide the stack class
+            $(".mailbox-moderation-unread-count").removeClass("stack");
+    }
+</script>
+
+@await Html.PartialAsync("MailboxItem", Model)

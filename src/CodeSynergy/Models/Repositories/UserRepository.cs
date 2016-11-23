@@ -1,82 +1,68 @@
 ﻿using CodeSynergy.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using System;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace CodeSynergy.Models.Repositories
 {
-    public class UserRepository : IKeyValueRepository<ApplicationUser, string>
+    public class UserRepository : UserStore<ApplicationUser, IdentityRole<string>, ApplicationDbContext, string>
     {
         ApplicationDbContext context;
 
-        public UserRepository(ApplicationDbContext context)
+        public UserRepository(ApplicationDbContext context, IdentityErrorDescriber describer = null) : base(context, describer) { }
+
+        public bool HasActiveBan(BanRepository bans, ApplicationUser user)
         {
-            this.context = context;
-            List<ApplicationUser> usersList = context.Users.ToList();
-            List<IdentityUserRole<string>> rolesList = context.UserRoles.ToList();
-
-            foreach (ApplicationUser user in usersList)
-            {
-                if (rolesList.SingleOrDefault(r => r.UserId == user.Id) == null)
-                {
-                    ((ApplicationUser)context.Users.Single(u => u.Id == user.Id)).Role = "Member";
-                }
-            }
-
-            if (rolesList.Count < usersList.Count)
-            {
-                context.SaveChanges();
-            }
+            return bans.GetAllForUser(user).Any();
         }
 
-        public void Add(string key, ApplicationUser val)
+        public Ban GetActiveBan(BanRepository bans, ApplicationUser user)
         {
-            context.Users.Add(val);
-            context.SaveChanges();
+            return bans.GetAllForUser(user).SingleOrDefault();
         }
 
         public IEnumerable<ApplicationUser> GetAll()
         {
-            return context.Users.AsEnumerable();
+            return Users.Include(u => u.Roles).Include(u => u.Country).Include(u => u.Region).Include(u => u.QAPosts).ThenInclude(p => p.Question).ThenInclude(q => q.QuestionTags).Include(u => u.QAPosts)
+                .ThenInclude(p => p.Comments).Include(u => u.Comments).ThenInclude(c => c.Question).ThenInclude(q => q.Posts).Include(u => u.Stars).Include(u => u.UserTags).ThenInclude(ut => ut.Tag)
+                .AsEnumerable();
         }
 
-        public ApplicationUser Find(string key)
+        public ApplicationUser FindByEmail(string email)
         {
-            ApplicationUser user = context.Users.Single(u => u.Id == key);
-            return user;
+            ThrowIfDisposed();
+            return Users.Include(u => u.Roles).Include(u => u.Country).Include(u => u.Region).Include(u => u.QAPosts).ThenInclude(p => p.Question).ThenInclude(q => q.QuestionTags).Include(u => u.QAPosts)
+                .ThenInclude(p => p.Comments).Include(u => u.Comments).ThenInclude(c => c.Question).ThenInclude(q => q.Posts).Include(u => u.Stars).Include(u => u.UserTags).ThenInclude(ut => ut.Tag)
+                .FirstOrDefault(u => u.Email == email);
         }
 
-        public ApplicationUser FindByDisplayName(string displayName)
+        public async Task<ApplicationUser> FindByDisplayNameAsync(string displayName)
         {
-            ApplicationUser user = context.Users.SingleOrDefault(u => u.DisplayName.ToLower() == displayName.ToLower());
-            return user;
+            ThrowIfDisposed();
+            return await Users.Include(u => u.Roles).Include(u => u.Country).Include(u => u.Region).Include(u => u.QAPosts).ThenInclude(p => p.Question).ThenInclude(q => q.QuestionTags).Include(u => u.QAPosts)
+                .ThenInclude(p => p.Comments).Include(u => u.Comments).ThenInclude(c => c.Question).ThenInclude(q => q.Posts).Include(u => u.Stars).Include(u => u.UserTags).ThenInclude(ut => ut.Tag)
+                .FirstOrDefaultAsync(u => u.DisplayName == displayName);
         }
 
-        public ApplicationUser FindByUserName(string userName)
+        public async Task<ApplicationUser> FindByEmailAsync(string email)
         {
-            ApplicationUser user = context.Users.SingleOrDefault(u => u.UserName == userName);
-            return user;
+            ThrowIfDisposed();
+            return await Users.Include(u => u.Roles).Include(u => u.Country).Include(u => u.Region).Include(u => u.QAPosts).ThenInclude(p => p.Question).ThenInclude(q => q.QuestionTags).Include(u => u.QAPosts).ThenInclude(p => p.Comments).Include(u => u.Comments).ThenInclude(c => c.Question).ThenInclude(q => q.Posts).Include(u => u.Stars).Include(u => u.UserTags).ThenInclude(ut => ut.Tag).FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        public bool Remove(string key)
+        public async Task<ApplicationUser> FindByIdAsync(string userId)
         {
-            bool successful = context.Users.Remove(Find(key)) != null;
-            
-            if (successful) {
-                context.SaveChanges();
-            }
-
-            return successful;
+            ThrowIfDisposed();
+            return await Users.Include(u => u.Roles).Include(u => u.Country).Include(u => u.Region).Include(u => u.QAPosts).ThenInclude(p => p.Question).ThenInclude(q => q.QuestionTags).Include(u => u.QAPosts).ThenInclude(p => p.Comments).Include(u => u.Comments).ThenInclude(c => c.Question).ThenInclude(q => q.Posts).Include(u => u.Stars).Include(u => u.UserTags).ThenInclude(ut => ut.Tag).FirstOrDefaultAsync(u => u.Id == userId);
         }
 
-        public void Update(ApplicationUser val)
+        public async Task<ApplicationUser> FindByNameAsync(string userName)
         {
-            context.Users.Update(val);
-            context.SaveChanges();
+            ThrowIfDisposed();
+            return await Users.Include(u => u.Roles).Include(u => u.Country).Include(u => u.Region).Include(u => u.QAPosts).ThenInclude(p => p.Question).ThenInclude(q => q.QuestionTags).Include(u => u.QAPosts).ThenInclude(p => p.Comments).Include(u => u.Comments).ThenInclude(c => c.Question).ThenInclude(q => q.Posts).Include(u => u.Stars).Include(u => u.UserTags).ThenInclude(ut => ut.Tag).FirstOrDefaultAsync(u => u.UserName == userName);
         }
     }
 }

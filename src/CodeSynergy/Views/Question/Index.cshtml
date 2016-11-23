@@ -1,0 +1,850 @@
+﻿@model PostAnswerViewModel
+
+@inject UserManager UserManager
+
+@{
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+    bool isAdministrator = user != null && user.Role == "Administrator";
+    bool isModerator = user != null && (user.Role == "Moderator" || isAdministrator);
+    bool isLocked = Model.Question.LockedByUserID != null && !isAdministrator;
+    ViewData["Title"] = Model.Question.SummaryHtml;
+}
+
+<link rel="stylesheet" href="~/css/viewquestion.css" />
+
+@Html.Partial("_ProfileBackgroundPartial", user)
+
+@{
+    QAPost bestAnswer = Model.Question.BestAnswer;
+    QAPost userPost = user != null ? Model.Question.VisiblePosts.SingleOrDefault(p => p.User.Email == Context.User.Identity.Name) : null;
+    List<QAPost> posts = (bestAnswer == null ? Model.Question.VisiblePosts.AsEnumerable() : Model.Question.VisiblePosts.OrderBy(p => p.QuestionPostID != bestAnswer.QuestionPostID)).OrderBy(p => userPost != null && p.QuestionPostID != userPost.QuestionPostID).OrderBy(p => p.QuestionPostID != 1).ToList();
+    Dictionary<int, List<short>> userCommentIds = new Dictionary<int, List<short>>();
+    int lastQuestionPostID = posts.Last().QuestionPostID;
+    if (user != null) {
+        foreach (QAPost post in posts)
+        {
+            userCommentIds.Add(post.QuestionPostID, post.VisibleComments.Where(c => c.User.Email == Context.User.Identity.Name).Select(c => c.PostCommentID).ToList());
+        }
+    }
+}
+
+<script type="text/javascript">
+    var githubID = @{ @Html.Raw(user != null && user.GitHubID != null ? "\"" + user.GitHubID + "\"" : "null"); };
+    var githubRepoData = null;
+
+    function addStar() {
+        $.ajax({
+            type: "POST",
+            url: '/Question/AddStar',
+            contentType: "application/x-www-form-urlencoded; charset=utf-8",
+            data: {
+                questionID: @Model.Question.QuestionID,
+                __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+            },
+            dataType: "json",
+            success: function (data) {
+                if (data[0]) {
+                    $(".btn-star").addClass("starred").addClass("fa-star").removeClass("fa-star-o");
+                } else {
+                    alert(data[1]);
+                }
+            },
+            error: function () { alert("Error: Something went wrong while attempting to star the question."); }
+        });
+    }
+
+    function removeStar() {
+        $.ajax({
+            type: "POST",
+            url: '/Question/RemoveStar',
+            contentType: "application/x-www-form-urlencoded; charset=utf-8",
+            data: {
+                questionID: @Model.Question.QuestionID,
+                __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+            },
+            dataType: "json",
+            success: function (data) {
+                if (data[0]) {
+                    $(".btn-star").removeClass("starred").addClass("fa-star-o").removeClass("fa-star");
+                } else {
+                    alert(data[1]);
+                }
+            },
+            error: function () { alert("Error: Something went wrong while attempting to unstar the question."); }
+        });
+    }
+
+    function postVote(vote, questionPostID) {
+        $.ajax({
+            type: "POST",
+            url: '/Question/PostVote',
+            contentType: "application/x-www-form-urlencoded; charset=utf-8",
+            data: {
+                questionID: @Model.Question.QuestionID,
+                questionPostID: questionPostID,
+                vote: vote,
+                __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+            },
+            dataType: "json",
+            success: function (data) {
+                if (data[0]) {
+                    var $btn = $("tbody[data-question-post-id=" + questionPostID + "]:first > tr > td > .btn-" + (vote ? "up" : "down") + "vote-post").removeClass("not-voted");
+                    var $oppBtn = $("tbody[data-question-post-id=" + questionPostID + "]:first > tr > td > .btn-" + (vote ? "down" : "up") + "vote-post");
+                    if ($btn.hasClass("not-voted") || !$oppBtn.hasClass("not-voted")) {
+                        $oppBtn.addClass("not-voted");
+                    } else {
+                        $oppBtn.removeClass("not-voted");
+                    }
+                    $("tbody[data-question-post-id=" + questionPostID + "]:first > tr > td.post-score > .score-text").html(data[1]);
+                } else {
+                    alert(data[1]);
+                }
+            },
+            error: function () { alert("Error: Something went wrong while attempting to cast a vote on the post."); }
+        });
+    }
+
+    function commentVote(vote, questionPostID, postCommentID) {
+        $.ajax({
+            type: "POST",
+            url: '/Question/CommentVote',
+            contentType: "application/x-www-form-urlencoded; charset=utf-8",
+            data: {
+                questionID: @Model.Question.QuestionID,
+                questionPostID: questionPostID,
+                postCommentID: postCommentID,
+                vote: vote,
+                __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+            },
+            dataType: "json",
+            success: function (data) {
+                if (data[0]) {
+                    var $btn = $("table#comment-table-" + questionPostID + " > tbody[data-post-comment-id=" + postCommentID + "]:first > tr > td > .btn-" + (vote ? "up" : "down") + "vote-comment").removeClass("not-voted");
+                    var $oppBtn = $("table#comment-table-" + questionPostID + " > tbody[data-post-comment-id=" + postCommentID + "]:first > tr > td > .btn-" + (vote ? "down" : "up") + "vote-comment");
+                    if ($btn.hasClass("not-voted") || !$oppBtn.hasClass("not-voted")) {
+                        $oppBtn.addClass("not-voted");
+                    } else {
+                        $oppBtn.removeClass("not-voted");
+                    }
+                    $("table#comment-table-" + questionPostID + " > tbody[data-post-comment-id=" + postCommentID + "]:first > tr > td.comment-score > .score-text").html(data[1]);
+                } else {
+                    alert(data[1]);
+                }
+            },
+            error: function () { alert("Error: Something went wrong while attempting to cast a vote on the comment."); }
+        });
+    }
+
+    function repVote(vote, displayName) {
+        $.ajax({
+            type: "POST",
+            url: '/User/RepVote',
+            contentType: "application/x-www-form-urlencoded; charset=utf-8",
+            data: {
+                displayName: displayName,
+                vote: vote,
+                __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+
+            },
+            dataType: "json",
+            success: function (data) {
+                if (data[0]) {
+                    var $btn = $("td.user-rep[data-username=\"" + displayName + "\"] > span > .btn-" + (vote ? "up" : "down") + "vote-rep").removeClass("not-voted");
+                    var $oppBtn = $("td.user-rep[data-username=\"" + displayName + "\"] > span > .btn-" + (vote ? "down" : "up") + "vote-rep");
+                    if ($btn.hasClass("not-voted") || !$oppBtn.hasClass("not-voted")) {
+                        $oppBtn.addClass("not-voted");
+                    } else {
+                        $oppBtn.removeClass("not-voted");
+                    }
+                    $("td.user-rep[data-username=\"" + displayName + "\"] > label > label.rep").html(data[1]);
+                } else {
+                    alert(data[1]);
+                }
+            },
+            error: function () { alert("Error: Something went wrong while attempting to cast a vote on the user's reputation."); }
+        });
+    }
+
+    function clearAutosaveData(textareaId) {
+        localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-" + textareaId + "-draft");
+        localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-" + textareaId + "-time");
+    }
+
+    function hideTagDeleteButtons() {
+        var paddingDiff = 0;
+        $("#editTagsForm > #tagInputContainer > .tag").each(function() {
+            paddingDiff += $(this).children("a")[0].offsetWidth - 5;
+        });
+        $("#editTagsForm").addClass("read-only");
+        $("#tagInput").css({ "margin-left": (parseFloat($("#tagInput").css("margin-left")) + paddingDiff) + "px",  "padding-left": (parseFloat($("#tagInput").css("padding-left")) - paddingDiff) + "px"});
+    }
+
+    function deletePost(questionPostID) {
+        $.ajax({
+            type: "POST",
+            url: '/Question/DeletePost',
+            contentType: "application/x-www-form-urlencoded; charset=utf-8",
+            data: {
+                questionID: @Model.Question.QuestionID,
+                questionPostID: questionPostID,
+                __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+            },
+            dataType: "json",
+            success: function (data) {
+                if (data[0]) {
+                    if ($("tbody[data-question-post-id=" + questionPostID + "]:not(.separator)").length > 2) {
+                        $("tbody[data-question-post-id=" + questionPostID + "]:first > tr > td.post-content").html('<span class=\"content\"><label>[DELETED]</label></span>');
+                        $("tbody[data-question-post-id=" + questionPostID + "]:first > tr > td.post-date > label > i").remove();
+                        if (questionPostID == 1)
+                            window.location.reload();
+                    } else {
+                        $("tbody[data-question-post-id=" + questionPostID + "]").animate({ opacity: 0 }, 2000, function() {
+                            $(this).remove();
+                            if (data[1] == "0" || questionPostID == 1)
+                                window.location.reload();
+                        });
+                    }
+                    $("#answer-count").html(data[1] + " Answer" + (data[1] != "1" ? "s" : ""));
+                } else
+                    alert(data[1]);
+            },
+            error: function () { alert("Error: Something went wrong while attempting to delete the post."); }
+        });
+    }
+
+    function deleteComment(questionPostID, postCommentID) {
+        $.ajax({
+            type: "POST",
+            url: '/Question/DeleteComment',
+            contentType: "application/x-www-form-urlencoded; charset=utf-8",
+            data: {
+                questionID: @Model.Question.QuestionID,
+                questionPostID: questionPostID,
+                postCommentID: postCommentID,
+                __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
+            },
+            dataType: "json",
+            success: function (data) {
+                if (data[0]) {
+                    $((data[1] != "0" ? "tbody[data-question-post-id=" + questionPostID + "][data-post-comment-id=" + postCommentID + "]" : "tbody.comments[data-question-post-id=" + questionPostID + "]")).animate({ opacity: 0 }, 1500, function() {
+                        $(this).remove();
+                    });
+                } else
+                    alert(data[1]);
+            },
+            error: function () { alert("Error: Something went wrong while attempting to delete the comment."); }
+        });
+    }
+
+    $(document).ready(function () {
+        if (location.hash) {
+            window.setTimeout(function() {
+                location.href = location.hash;
+            }, 10);
+        }
+
+        $(".btn-edit-tags").click(function () {
+            $(this).toggleClass("active");
+            $(".btn-save-tags").toggleClass("disabled");
+
+            if ($(this).hasClass("active")) {
+                $("#editTagsForm").toggleClass("read-only");
+                var paddingDiff = 0;
+                $("#editTagsForm > #tagInputContainer > .tag").each(function() {
+                    paddingDiff += $(this).children("a")[0].offsetWidth - 5;
+                });
+                $("#tagInput").css({ "margin-left": (parseFloat($("#tagInput").css("margin-left")) - paddingDiff) + "px",  "padding-left": (parseFloat($("#tagInput").css("padding-left")) + paddingDiff) + "px"});
+            } else {
+                $("#tagInputContainer > .tag, #tagInputContainer > input:not(#tagInput)").remove();
+                var tagstring = "";
+                $("#tagsContainer > .tag").each(function() {
+                    tagstring += $(this).attr("data-tag-name") + " ";
+                });
+                $("#tagInput").css({ "margin-left": "0", "padding-left": "10px" }).val(tagString).trigger(jQuery.Event("keypress", { keyCode: 0 }));
+                window.setTimeout(hideTagDeleteButtons, 250);
+            }
+        });
+
+        $(".btn-save-tags").click(function() {
+            $.ajax({
+                type: "POST",
+                url: '/Question/PostQuestionTags',
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                data: $("#editTagsForm").serializeArray(),
+                dataType: "json",
+                success: function (data) {
+                    if (data[0]) {
+                        $(".tag, #tagInputContainer > input:not(#tagInput)").remove();
+                        var tagstring = "";
+                        for (var t = 0; t < data[1].length; t++) {
+                            tagstring += data[1][t].tagName + " ";
+                            $("#tagsContainer").append("<span class=\"tag\" data-tag-name=\"" + data[1][t].tagName + "\" data-tag-id=\"" + data[1][t].tagID + "\">" + data[1][t].tagName + "</span>");
+                        }
+                        $("#tagInput").css({ "margin-left": "0", "padding-left": "10px" }).val(tagString).trigger(jQuery.Event("keypress", { keyCode: 0 }));
+                    }
+                    $(".btn-edit-tags").removeClass("active");
+                    $(".btn-save-tags").addClass("disabled");
+                    window.setTimeout(hideTagDeleteButtons, 250);
+                },
+                error: function () { alert("Error: Something went wrong while attempting to update question tags."); $("#editTagsForm").toggleClass("read-only"); }
+            });
+        });
+
+        $(".btn-upvote:not(.disabled)").click(function () {
+            if ($(this).hasClass("btn-upvote-post"))
+                postVote(true, $(this).parentsUntil("table#post-table", "tbody").data("question-post-id"));
+            else if ($(this).hasClass("btn-upvote-comment")) {
+                var $commentBody = $(this).parentsUntil("table.comment-table", "tbody");
+                commentVote(true, $commentBody.data("question-post-id"), $commentBody.data("post-comment-id"));
+            } else if ($(this).hasClass("btn-upvote-rep"))
+                repVote(true, $(this).parent().parent().data("username"));
+        });
+
+        $(".btn-downvote:not(.disabled)").click(function () {
+            if ($(this).hasClass("btn-downvote-post"))
+                postVote(false, $(this).parentsUntil("table#post-table", "tbody").data("question-post-id"));
+            else if ($(this).hasClass("btn-downvote-comment")) {
+                var $commentBody = $(this).parentsUntil("table.comment-table", "tbody");
+                commentVote(false, $commentBody.data("question-post-id"), $commentBody.data("post-comment-id"));
+            } else if ($(this).hasClass("btn-downvote-rep"))
+                repVote(false, $(this).parent().parent().data("username"));
+        });
+
+        $(".btn-star:not(.disabled)").click(function () {
+            if (!$(this).hasClass("starred")) {
+                addStar();
+            } else {
+                removeStar();
+            }
+        });
+
+        $(".btn-add-comment").click(function () {
+            $("form:visible .btn-cancel").click();
+            $(this).hide().next().removeClass('hidden');
+        });
+
+        $(".btn-cancel").click(function() {
+            // Use some jQuery cloning and removal to reinitialize the TinyMCE editors with their original content
+            $('textarea[name=Contents]:last-child').each(function() { clearAutosaveData($(this).attr("id")); $(this).clone().show().insertAfter($(this)); $(this).prev().remove(); $(this).remove(); });
+            initEditors();
+            $(this).parent().parent().parent().addClass('hidden').prev().show();
+            return false;
+        });
+
+        if (window.location.hash) {
+            $("a[name=" + window.location.hash.slice(1) + "]").parent().parent().parent().addClass("highlight");
+        }
+
+        @if (isModerator && Model.Question.DupeOriginalID == 0) {
+            @Html.Raw("$('#markAsDupeForm').submit(function() { var dupeOriginalID = parseInt(prompt('Enter the Question ID of the question this is a duplicate of. This ID can be seen by hovering over a question name.')); if (!isNaN(dupeOriginalID)) { $('#DupeOriginalID').val(dupeOriginalID); return true; } else { return false; } });");
+        }
+
+        $("#postAnswerForm, .postCommentForm").each(function () {
+            @if (Model.Contents != null && Model.Contents != "") {
+                @if (!Model.IsComment) {
+                    @if (Model.QuestionPostID == null)
+                    {
+                        @Html.Raw("if (!$(this).is(\"#postAnswerForm\"))");
+                    }
+                } else
+                {
+                    @if (Model.PostCommentID == null)
+                    {
+                        @Html.Raw("if (!$(this).is(\".postCommentForm\") || !$(this).parentsUntil(\"table\", \"tbody[data-question-post-id=" + Model.QuestionPostID + "]\").length === 1)");
+                    }
+                }
+            }
+            @Html.Raw("$(this).find(\"textarea:last\").val(\"\");");
+        });
+
+        $(".editAnswerForm, .editCommentForm").each(function () {
+            @if (Model.Contents != null && Model.Contents != "") {
+                @if (!Model.IsComment) {
+                    @if (Model.QuestionPostID != null)
+                    {
+                        @Html.Raw("if (!$(this).parentsUntil(\"table\", \"tbody[data-question-post-id=" + Model.QuestionPostID + "]\").length === 1)");
+                    }
+                } else
+                {
+                    @if (Model.PostCommentID != null)
+                    {
+                        @Html.Raw("if (!$(this).parentsUntil(\"tbody\", \"tr\").parent().is(\"tbody[data-question-post-id=" + Model.QuestionPostID + "][data-post-comment-id=" + Model.PostCommentID + "]\"))");
+                    }
+                }
+            }
+            @Html.Raw("$(this).find(\"textarea:last\").val($(this).parentsUntil(\"tr\", \"td.content\").children(\".content\").html());");
+        });
+
+        @if (userPost != null || isModerator)
+        {
+            @Html.Raw("$('.btn-edit-post').click(function() { var $editAnswerForm = $(this).parent().parent().parent().parent().find('.editAnswerForm'); var formIsHidden = $editAnswerForm.hasClass('hidden'); $('form:visible .btn-cancel').click(); if (formIsHidden) { $editAnswerForm.removeClass('hidden').prev().hide(); } });");
+            @if (!isModerator && userPost.QuestionPostID != 1)
+            {
+                @Html.Raw("$('.btn-delete-post').click(function() { if (confirm(\'Are you sure you want to delete your answer on the question? This action cannot be reversed.')) { deletePost($(this).parent().parent().parent().parent().data('question-post-id')); } });");
+            } else if (isModerator) {
+                @Html.Raw("$('.btn-delete-post').click(function() { if (confirm(\'Are you sure you want to delete this answer on the question? This action cannot be reversed.')) { deletePost($(this).parent().parent().parent().parent().data('question-post-id')); } });");
+                Post questionPost = Model.Question.QuestionPost;
+                if (questionPost.User.Role == "Member" || (isAdministrator && questionPost.User.Role == "Moderator") || user.Email == "admin@codesynergy.com") {
+                    @Html.Raw("$('.btn-delete-question').click(function() { if (confirm(\'Are you sure you want to delete this question? This action cannot be reversed and will also lock the question.')) { deletePost($(this).parent().parent().parent().parent().data('question-post-id')); } });");
+                }
+            }
+        }
+
+        @if (userCommentIds.Any() || isModerator)
+        {
+            @Html.Raw("$('.btn-edit-comment').click(function() { var $tbody = $(this).parent().parent().parent().parent(); var $form = $('.editCommentForm[data-question-post-id=' + $tbody.data('question-post-id') + '][data-post-comment-id=' + $tbody.data('post-comment-id') + ']'); var formIsHidden = $form.hasClass('hidden'); $('form:visible .btn-cancel').click(); if (formIsHidden) { $form.removeClass('hidden').prev().hide(); } });" +
+                " $('.btn-delete-comment').click(function() { if (confirm('Are you sure you want to delete " + (!isModerator ? "your" : "this") + " comment on the post? This action cannot be reversed.')) { var $commentBody = $(this).parent().parent().parent().parent(); deleteComment($commentBody.data('question-post-id'), $commentBody.data('post-comment-id')); } });");
+        }
+    });
+</script>
+
+<div class="row">
+    <div class="col-md-9">
+        <div class="row" style="margin: 0;">
+            <h2 @{ if (isModerator) { @Html.Raw("title=\"#" + Model.Question.QuestionID + "\""); } }>@Html.Raw(ViewData["Title"])</h2>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                @{ List<Tag> Tags = Model.Question.Tags; }
+                @if (!isLocked && ((userPost != null && userPost.QuestionPostID == 1) || isModerator))
+                {
+                    <form id="editTagsForm" style="width: calc(100% - 32px);" class="left read-only">
+                        <input type="hidden" name="QuestionID" value="@Model.Question.QuestionID" />
+                        @await Html.PartialAsync("_TagInputPartial", new TagInputViewModel(Tags))
+                        @Html.AntiForgeryToken()
+                    </form><i class="fa fa-2x fa-pencil btn-edit btn-edit-tags hover-green right"></i><i class="fa fa-2x fa-save btn-save btn-save-tags hover-green right disabled"></i>
+                }
+                <span id="tagsContainer"@{ if (!isLocked && ((userPost != null && userPost.QuestionPostID == 1) || isModerator)) { @Html.Raw(" class=\"hidden\""); } }>
+                    @foreach (Tag t in Tags)
+                    {
+                        <span class="tag" data-tag-name="@t.TagName" data-tag-id="@t.TagID">@t.FormattedTagName</span>
+                    }
+                </span>
+            </div>
+        </div>
+        @if (Model.Question.LockedDate == null && isModerator)
+        {
+            <br />
+            <div class="row">
+                <div class="col-md-12">
+                    <form asp-controller="Question" asp-action="@Model.Question.QuestionID" id="lockQuestionForm" method="post" class="form-horizontal" role="form">
+                        <input type="hidden" asp-for="QuestionID" value="@Model.Question.QuestionID" />
+                        <input type="hidden" asp-for="LockedByDisplayName" value="@user.FormattedDisplayName" />
+                        <input type="hidden" asp-for="Contents" value="@Model.Question.QuestionPost.Contents" />
+                        <button type="submit" class="btn btn-primary btn-add-duplicate">Lock Question</button>
+                        @Html.AntiForgeryToken()
+                    </form>
+                </div>
+            </div>
+        }
+        @if (Model.Question.LockedDate != null)
+        {
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="locked-question-info">
+                        <i class="fa fa-2x fa-lock blue"></i>&nbsp;&nbsp;<label>This question was locked by <a asp-controller="User" asp-action="@Model.Question.LockedByUser.FormattedDisplayName">@Model.Question.LockedByUser.FormattedDisplayName</a> <span title="@Model.Question.LockedDate">@Model.Question.GetTimeSinceLockedDate().ToLower()</span></label>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (Model.Question.DupeOriginalID == 0 && isModerator)
+        {
+            <br />
+            <div class="row">
+                <div class="col-md-12">
+                    <form asp-controller="Question" asp-action="@Model.Question.QuestionID" id="markAsDupeForm" method="post" class="form-horizontal" role="form">
+                        <input type="hidden" asp-for="QuestionID" value="@Model.Question.QuestionID" />
+                        <input type="hidden" asp-for="DupeOriginalID" value="" />
+                        <input type="hidden" asp-for="Contents" value="@Model.Question.QuestionPost.Contents" />
+                        <button type="submit" class="btn btn-primary btn-add-duplicate">Mark as Duplicate</button>
+                        @Html.AntiForgeryToken()
+                    </form>
+                </div>
+            </div>
+        }
+        @if (Model.Question.DupeOriginalID != 0)
+        {
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="dupe-original-info">
+                        <i class="fa fa-2x fa-copy blue"></i>&nbsp;&nbsp;<label>This question is a duplicate of <a asp-controller="Question" asp-action="@Model.Question.DupeOriginalID">@Model.Question.DupeOriginal.Summary</a></label>
+                        @if (isModerator)
+                        {
+                            <form asp-controller="Question" asp-action="@Model.Question.QuestionID" id="markAsDupeForm" method="post" class="form-horizontal" role="form">
+                                <input type="hidden" asp-for="QuestionID" value="@Model.Question.QuestionID" />
+                                <input type="hidden" asp-for="DupeOriginalID" value="0" />
+                                <input type="hidden" asp-for="Contents" value="NULL" />
+                                <button type="submit" class="btn btn-primary btn-add-duplicate">Unmark as Duplicate</button>
+                                @Html.AntiForgeryToken()
+                            </form>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+        <div class="row">
+            <div class="col-md-12">
+                <hr />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 table-reponsive">
+                <table id="post-table">
+                    @foreach (QAPost p in posts)
+                    {
+                        QAPostVote postVote = ViewBag.PostVotes.ContainsKey(p.QuestionPostID) ? ViewBag.PostVotes[p.QuestionPostID] : null;
+                        RepVote repVote = ViewBag.RepVotes.ContainsKey(p.UserID) ? ViewBag.RepVotes[p.UserID] : null;
+                        bool isBestAnswer = bestAnswer != null && bestAnswer.QuestionPostID == p.QuestionPostID;
+                        bool isUserPost = user != null && p.UserID == user.Id;
+                        string rowClass = "";
+                        short? lastPostCommentID = p.VisibleComments.Any() ? (short?)p.VisibleComments.Last().PostCommentID : null;
+
+                        if (isUserPost)
+                        {
+                            rowClass = "user-post";
+                        }
+                        if (bestAnswer != null && p.QuestionPostID == bestAnswer.QuestionPostID)
+                        {
+                            rowClass = rowClass == "" ? "best-answer" : rowClass + " best-answer";
+                        }
+                        <tbody @if (rowClass != "") { @Html.Raw("class=\"" + rowClass + "\""); } data-question-post-id="@p.QuestionPostID">
+                            <tr>
+                                <td class="score post-score" rowspan="2">
+                                    <h1 class="score-text">@p.Score</h1>
+                                </td>
+                                <td class="upvote post-upvote">
+                                    <i class="fa fa-caret-square-o-up fa-2x btn-upvote btn-upvote-post@{if (postVote != null && !postVote.Vote) { @Html.Raw(" not-voted"); } }@{if (user == null || isUserPost || isLocked || p.DeletedFlag) { @Html.Raw(" disabled"); } }"></i>
+                                </td>
+                                <td class="user-img post-user-img" rowspan="2">
+                                    <a name="p@{@Html.Raw(p.QuestionPostID);}"></a>
+                                    <img src="@p.User.ProfileImageUrl" class="profile-image" width=64 height=64 />
+                                </td>
+                                <td class="user-name post-user-name">
+                                    <label>@Html.Raw(p.User.GetFullFormattedDisplayName(UserManager as UserManager, true))</label>
+                                </td>
+                                <td class="user-rep post-user-rep" data-username="@p.User.DisplayName">
+                                    <label>Rep: <label class="rep">@p.User.Reputation</label></label> <span><i class="fa fa-plus-square btn-upvote btn-upvote-rep btn-upvote-rep-post@{if (repVote != null && !repVote.Vote) { @Html.Raw(" not-voted"); } }@{if (user == null || isUserPost) { @Html.Raw(" disabled"); } }"></i> <i class="fa fa-minus-square btn-downvote btn-downvote-rep btn-downvote-rep-post@{if (repVote != null && repVote.Vote) { @Html.Raw(" not-voted"); } }@{if (user == null || isUserPost) { @Html.Raw(" disabled"); } }"></i></span>
+                                </td>
+                                <td class="post-date post-post-date">
+                                    <label title="@Html.Raw("Posted on " + p.PostDate.ToString())">
+                                        @p.GetTimeSincePostDate()@if (p.EditDate != null) { @Html.Raw("<span title='Last Edited on " + p.EditDate + "'> *</span>") }@{ if (!isLocked && (isUserPost || (isModerator && (p.User.Role == "Member" || (isAdministrator && p.User.Role == "Moderator") || user.Email == "admin@codesynergy.com"))) && !p.DeletedFlag) { @Html.Raw("<i class='fa fa-pencil btn-edit btn-edit-post hover-green'></i>"); if (!isLocked && (isUserPost || ((isModerator && (p.User.Role == "Member" || (isAdministrator && p.User.Role == "Moderator") || user.Email == "admin@codesynergy.com"))))) { @Html.Raw("&nbsp;<i class='fa fa-times btn-delete btn-delete-" + (p.QuestionPostID > 1 ? "post" : "question") + "'></i>"); } } }
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="downvote post-downvote">
+                                    <i class="fa fa-caret-square-o-down fa-2x btn-downvote btn-downvote-post@{if (postVote != null && postVote.Vote) { @Html.Raw(" not-voted"); } }@{if (user == null || isUserPost || isLocked || p.DeletedFlag) { @Html.Raw(" disabled"); } }"></i>
+                                </td>
+                                <td class="user-job-title post-user-job-title" colspan="2">
+                                    <label>@p.User.JobTitle</label>
+                                </td>
+                                <td class="report post-report">
+                                    @if (!isUserPost)
+                                    {
+                                        <i class="fa fa-bullhorn fa-2x btn-report" data-report-type-id="@((byte) (p.QuestionPostID > 1 ? p.GetReportType() : Model.Question.GetReportType()))" data-reportable-item-id="@(p.QuestionPostID > 1 ? p.GetReportableItemID() : Model.Question.GetReportableItemID())"></i>
+                                        @if (isModerator && (p.User.Role == "Member" || (isAdministrator && p.User.Role == "Moderator") || user.Email == "admin@codesynergy.com"))
+                                        {
+                                            @Html.Raw("&nbsp;<i class=\"fa fa-gavel fa-2x btn-ban\" data-display-name=\"" + p.User.DisplayName + "\"></i>");
+                                        }
+                                    }
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="post-icons" colspan="2">
+                                    @if (p.QuestionPostID == 1 && !isUserPost)
+                                    {
+                                        <i class="fa fa-3x btn-star fa-star@{ if (user == null) { @Html.Raw("-o disabled"); } else { @Html.Raw(Model.Question.Stars.Any(s => s.UserID == user.Id) ? " starred" : "-o"); } }" title="Star this Question"></i>
+                                    }
+                                    else if (isBestAnswer)
+                                    {
+                                        <i class="fa fa-check fa-3x" title="Best Answer"></i>
+                                    }
+                                </td>
+                                <td class="content post-content" colspan="4">
+                                    <span class="content">@Html.Raw(!p.DeletedFlag ? p.Contents : "[DELETED]")</span>
+                                    @if ((isModerator || isUserPost) && !p.DeletedFlag)
+                                    {
+                                        <form asp-controller="Question" asp-action="@Model.Question.QuestionID" method="post" class="form-horizontal editAnswerForm hidden" role="form">
+                                            <div asp-validation-summary="All" class="text-danger"></div>
+                                            <input type="hidden" asp-for="QuestionID" value="@Model.Question.QuestionID" />
+                                            <input type="hidden" asp-for="QuestionPostID" value="@p.QuestionPostID" />
+                                            <input type="hidden" asp-for="IsComment" value="@false" />
+                                            <div class="row">
+                                                <div class="col-md-12">
+                                                    <textarea asp-for="@Model.Contents" id="Contents_editAnswer" maxlength="4000"></textarea>
+                                                </div>
+                                            </div>
+                                            <br />
+                                            <div class="row">
+                                                <div class="col-md-12">
+                                                    <button class="btn btn-lg btn-primary btn-cancel">Cancel</button>
+                                                    <button type="submit" class="btn btn-lg btn-primary">Save Changes</button>
+                                                </div>
+                                            </div>
+                                            @Html.AntiForgeryToken()
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                         </tbody>
+                        @if (lastPostCommentID != null)
+                        {
+                            <tbody class="comments" data-question-post-id="@p.QuestionPostID">
+                                <tr>
+                                    <td colspan="6">
+                                        <hr />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2"></td>
+                                    <td colspan="4" class="post-comments">
+                                        <table id="comment-table-@p.QuestionPostID" class="comment-table">
+                                            @foreach (Comment c in p.VisibleComments)
+                                            {
+                                                CommentVote commentVote = ViewBag.CommentVotes.ContainsKey(p.QuestionPostID) && ViewBag.CommentVotes[p.QuestionPostID].ContainsKey(c.PostCommentID) ? ViewBag.CommentVotes[p.QuestionPostID][c.PostCommentID] : null;
+                                                repVote = ViewBag.RepVotes.ContainsKey(c.UserID) ? ViewBag.RepVotes[c.UserID] : null;
+                                                bool isUserComment = userCommentIds.Any(u => u.Key == p.QuestionPostID) && userCommentIds[p.QuestionPostID].Any() && userCommentIds[p.QuestionPostID].Contains(c.PostCommentID);
+                                                if (isUserComment)
+                                                {
+                                                    rowClass = "user-comment";
+                                                } else
+                                                {
+                                                    rowClass = "";
+                                                }
+                                                <tbody @if (rowClass != "") { @Html.Raw("class=\"" + rowClass + "\""); } data-question-post-id="@p.QuestionPostID" data-post-comment-id="@c.PostCommentID">
+                                                    <tr>
+                                                        <td class="score comment-score" rowspan="2">
+                                                            <a name="p@{@Html.Raw(p.QuestionPostID);}c@{@Html.Raw(c.PostCommentID);}"></a>
+                                                            <h1 class="score-text">@c.Score</h1>
+                                                        </td>
+                                                        <td class="upvote comment-upvote">
+                                                            <i class="fa fa-caret-square-o-up fa-2x btn-upvote btn-upvote-comment@{if (commentVote != null && !commentVote.Vote) { @Html.Raw(" not-voted"); } }@{if (user == null || isUserComment || isLocked || c.DeletedFlag) { @Html.Raw(" disabled"); } }"></i>
+                                                        </td>
+                                                        <td class="user-img comment-user-img" rowspan="2">
+                                                            <img src="@c.User.ProfileImageUrl" class="profile-image" width=64 height=64 />
+                                                        </td>
+                                                        <td class="user-name comment-user-name">
+                                                            <label>@Html.Raw(c.User.GetFullFormattedDisplayName(UserManager as UserManager, true))</label>
+                                                        </td>
+                                                        <td class="user-rep comment-user-rep" data-username="@c.User.DisplayName">
+                                                            <label>Rep: <label class="rep">@c.User.Reputation</label></label> <span><i class="fa fa-plus-square btn-upvote btn-upvote-rep btn-upvote-rep-comment@{if (repVote != null && !repVote.Vote) { @Html.Raw(" not-voted"); } }@{if (user == null || isUserComment) { @Html.Raw(" disabled"); } }"></i> <i class="fa fa-minus-square btn-downvote btn-downvote-rep btn-downvote-rep-comment@{if (repVote != null && repVote.Vote) { @Html.Raw(" not-voted"); } }@{if (user == null || isUserComment) { @Html.Raw(" disabled"); } }"></i></span>
+                                                        </td>
+                                                        <td class="post-date comment-post-date">
+                                                            <label title="@Html.Raw("Posted on " + c.PostDate.ToString())">
+                                                                @c.GetTimeSincePostDate()@if (c.EditDate != null) { @Html.Raw("<span title='Last Edited on " + c.EditDate + "'> *</span>") }@if (!isLocked && (isUserComment || (isModerator && (c.User.Role == "Member" || (isAdministrator && c.User.Role == "Moderator") || user.Email == "admin@codesynergy.com")))) { @Html.Raw("<i class='fa fa-pencil btn-edit btn-edit-comment hover-green'></i>&nbsp;<i class='fa fa-times btn-delete btn-delete-comment'></i>"); }
+                                                            </label>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="downvote comment-downvote">
+                                                            <i class="fa fa-caret-square-o-down fa-2x btn-downvote btn-downvote-comment@{if (commentVote != null && commentVote.Vote) { @Html.Raw(" not-voted"); } }@{if (user == null || isUserComment || isLocked || c.DeletedFlag) { @Html.Raw(" disabled"); } }"></i>
+                                                        </td>
+                                                        <td class="user-job-title comment-user-job-title" colspan="2">
+                                                            <label>@c.User.JobTitle</label>
+                                                        </td>
+                                                        <td class="report post-report">
+                                                            @if (!isUserComment)
+                                                            {
+                                                                <i class="fa fa-bullhorn fa-2x btn-report" data-report-type-id="@((byte) c.GetReportType())" data-reportable-item-id="@c.GetReportableItemID()"></i>
+                                                                @if (isModerator && (c.User.Role == "Member" || (isAdministrator && c.User.Role == "Moderator") || user.Email == "admin@codesynergy.com"))
+                                                                {
+                                                                    @Html.Raw("&nbsp;<i class=\"fa fa-gavel fa-2x btn-ban\" data-display-name=\"" + c.User.DisplayName + "\"></i>");
+                                                                }
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td colspan="2"></td>
+                                                        <td class="content comment-content" colspan="4">
+                                                            <span class="content">@Html.Raw(c.Contents)</span>
+                                                            @if ((isModerator || isUserComment) && !p.DeletedFlag)
+                                                            {
+                                                                bool isPostEditComment = Model.QuestionPostID != null && Model.PostCommentID == c.PostCommentID;
+                                                                <form asp-controller="Question" asp-action="@Model.Question.QuestionID" method="post" class="editCommentForm form-horizontal@{ @Html.Raw(isPostEditComment && Model.QuestionPostID == p.QuestionPostID && Model.PostCommentID == c.PostCommentID ? "" : " hidden"); }" role="form" data-question-post-id="@p.QuestionPostID" data-post-comment-id="@c.PostCommentID">
+                                                                    <div asp-validation-summary="All" class="text-danger"></div>
+                                                                    <input type="hidden" asp-for="QuestionID" value="@Model.Question.QuestionID" />
+                                                                    <input type="hidden" asp-for="QuestionPostID" value="@p.QuestionPostID" />
+                                                                    <input type="hidden" asp-for="PostCommentID" value="@c.PostCommentID" />
+                                                                    <input type="hidden" asp-for="IsComment" value="@true" />
+                                                                    <div class="row">
+                                                                        <div class="col-md-12">
+                                                                            <textarea asp-for="@Model.Contents" id="Contents_editComment_@{@p.QuestionPostID}_@c.PostCommentID}" maxlength="4000"></textarea>
+                                                                        </div>
+                                                                    </div>
+                                                                    <br />
+                                                                    <div class="row">
+                                                                        <div class="col-md-12">
+                                                                            <button class="btn btn-lg btn-primary btn-cancel">Cancel</button>
+                                                                            <button type="submit" class="btn btn-lg btn-primary">Save Changes</button>
+                                                                        </div>
+                                                                    </div>
+                                                                    @Html.AntiForgeryToken()
+                                                                </form>
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                                <tbody class="separator" data-question-post-id="@p.QuestionPostID" data-post-comment-id="@c.PostCommentID">
+                                                    @if (c.PostCommentID != lastPostCommentID)
+                                                    {
+                                                        <tr>
+                                                            <td colspan="6">
+                                                                <hr />
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            }
+                                        </table>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        }
+                        @if (!isLocked && !p.DeletedFlag) {
+                            <tbody data-question-post-id="@p.QuestionPostID">
+                                <tr>
+                                    <td colspan="2"></td>
+                                    <td colspan="4">
+                                        @{
+                                            bool isPostComment = Model.QuestionPostID != null && Model.PostCommentID == null;
+                                            <button class="btn btn-lg btn-primary btn-add-comment"@{if (isPostComment) { @Html.Raw(" style=\"display: none;\""); } }>Add a Comment</button>
+                                            <form asp-controller="Question" asp-action="@Model.Question.QuestionID" method="post" class="postCommentForm form-horizontal@{ @Html.Raw(isPostComment && Model.QuestionPostID == p.QuestionPostID ? "" : " hidden"); }" role="form" data-question-post-id="@p.QuestionPostID">
+                                                <div class="row">
+                                                    <div class="col-md-12">
+                                                        <hr />
+                                                    </div>
+                                                </div>
+                                                <div asp-validation-summary="All" class="text-danger"></div>
+                                                <input type="hidden" asp-for="QuestionID" value="@Model.Question.QuestionID" />
+                                                <input type="hidden" asp-for="QuestionPostID" value="@p.QuestionPostID" />
+                                                <input type="hidden" asp-for="IsComment" value="@true" />
+                                                <div class="row">
+                                                    <div class="col-md-12">
+                                                        @{
+                                                            <textarea asp-for="@Model.Contents" id="Contents_postComment_@p.QuestionPostID" maxlength="4000"></textarea>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <br />
+                                                <div class="row">
+                                                    <div class="col-md-12">
+                                                        <button class="btn btn-lg btn-primary btn-cancel">Cancel</button>
+                                                        <button type="submit" class="btn btn-lg btn-primary">Post Comment</button>
+                                                    </div>
+                                                </div>
+                                                @Html.AntiForgeryToken()
+                                            </form>
+                                        }
+                                    </td>
+                                </tr>
+                            </tbody>
+                        }
+                        <tbody class="separator" data-question-post-id="@p.QuestionPostID">
+                            @if (p.QuestionPostID != lastQuestionPostID) {
+                                <tr>
+                                    <td colspan="6">
+                                        @if (p.QuestionPostID == 1)
+                                        {
+                                            <br />
+                                            <h3 id="answer-count">@Model.Question.AnswerCount Answer@(Model.Question.AnswerCount != 1 ? "s" : "")</h3>
+                                        }
+                                        <hr />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    }
+                    @if (!isLocked && userPost == null)
+                    {
+                        <tbody>
+                            <tr>
+                                <td colspan="2"></td>
+                                <td colspan="4">
+                                    <form asp-controller="Question" asp-action="@Model.Question.QuestionID" id="postAnswerForm" method="post" class="form-horizontal" role="form">
+                                        <div asp-validation-summary="All" class="text-danger"></div>
+                                        <input type="hidden" asp-for="QuestionID" value="@Model.Question.QuestionID" />
+                                        <input type="hidden" asp-for="IsComment" value="@false" />
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <textarea asp-for="@Model.Contents" id="Contents_postAnswer" maxlength="4000"></textarea>
+                                            </div>
+                                        </div>
+                                        <br />
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <button type="submit" class="btn btn-lg btn-primary">Post Answer</button>
+                                            </div>
+                                        </div>
+                                        @Html.AntiForgeryToken()
+                                    </form>
+                                </td>
+                            </tr>
+                       </tbody>
+                    }
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 table-responsive">
+        @if (((List<Question>) ViewBag.SimilarQuestions).Any())
+        {
+            <h3>Similar Questions</h3>
+            <table id="similar-questions-table">
+                <tr>
+                    <th><i class="fa fa-unsorted" title="Score"></i></th>
+                    <th><i class="fa fa-star" title="Stars"></i></th>
+                    <th><i class="fa fa-comments" title="Answers"></i></th>
+                    <th></th>
+                </tr>
+                @foreach (Question q in ViewBag.SimilarQuestions)
+                {
+                    <tr>
+                        <td><h4 class="count-box score@{ @Html.Raw(q.QuestionPost.Score > 0 ? "-pos" : q.QuestionPost.Score < 0 ? "-neg" : ""); }">@q.QuestionPost.Score</h4></td>
+                        <td><h4 class="count-box stars">0</h4></td>
+                        <td><h4 class="count-box answers">@q.AnswerCount</h4></td>
+                        <td><a asp-controller="Question" asp-action="@q.QuestionID" title="@{ @Html.Raw(isModerator ? "#" + q.QuestionID : "") }">@Html.Raw(q.SummaryHtml)</a></td>
+                    </tr>
+                }
+            </table>
+            @if (isModerator || ViewBag.SimilarQuestionsTotal > 10)
+            {
+                <a href="javascript:void(0)" class="modal-link" data-path="Question/SimilarQuestions/@Model.Question.QuestionID">View All Similar Questions</a>
+            }
+        }
+        @if (((List<Question>) ViewBag.RelatedQuestions).Any())
+        {
+            <h3>Related Questions</h3>
+            <table id="related-questions-table">
+                <tr>
+                    <th><i class="fa fa-unsorted" title="Score"></i></th>
+                    <th><i class="fa fa-star" title="Stars"></i></th>
+                    <th><i class="fa fa-comments" title="Answers"></i></th>
+                    <th></th>
+                </tr>
+                @foreach (Question q in ViewBag.RelatedQuestions)
+                {
+                    <tr>
+                        <td><h4 class="count-box score@{ @Html.Raw(q.QuestionPost.Score > 0 ? "-pos" : q.QuestionPost.Score < 0 ? "-neg" : ""); }">@q.QuestionPost.Score</h4></td>
+                        <td><h4 class="count-box stars">0</h4></td>
+                        <td><h4 class="count-box answers">@q.AnswerCount</h4></td>
+                        <td><a asp-controller="Question" asp-action="@q.QuestionID" title="@{ @Html.Raw(isModerator ? "#" + q.QuestionID : "") }">@Html.Raw(q.SummaryHtml)</a></td>
+                    </tr>
+                }
+            </table>
+            @if (isModerator || ViewBag.RelatedQuestionsTotal > 10)
+            {
+                <a href="javascript:void(0)" class="modal-link" data-path="Question/RelatedQuestions/@Model.Question.QuestionID">View All Related Questions</a>  
+            }
+        }
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}
+
+<script src="~/js/inittexteditors.js"></script>

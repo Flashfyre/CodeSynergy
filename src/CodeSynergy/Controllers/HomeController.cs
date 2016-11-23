@@ -1,114 +1,77 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using CodeSynergy.Models;
 using CodeSynergy.Data;
 using CodeSynergy.Models.Repositories;
-using CodeSynergy.Models.HomeViewModels;
+using Newtonsoft.Json;
 
 namespace CodeSynergy.Controllers
 {
     public class HomeController : Controller
     {
-        QuestionRepository questions;
-        TagRepository tags;
+        private readonly QuestionRepository _questions; // Repository for questions
 
-        public HomeController() : base()
+        public HomeController(IRepository<Question, int> questions) : base()
         {
-            ApplicationDbContext context = new ApplicationDbContext();
-            questions = new QuestionRepository(context);
-            tags = new TagRepository(context);
+            _questions = (QuestionRepository) questions;
         }
 
+        // Home page loaded
+        // GET: [/Home]/Index
         [HttpGet]
-        public IActionResult Index()
+        public IActionResult Index(string Modal)
         {
+            ViewData["Modal"] = Modal;
+            List<Question> recentQuestions = new List<Question>(); // List of recent questions to add to the homepage
+            // Get recent questions (if any) from cookies and add them to the list
+            if (Request.Cookies.Any(c => c.Key == "recently_viewed"))
+            {
+                foreach (int questionID in JsonConvert.DeserializeObject<int[]>(Request.Cookies["recently_viewed"]))
+                {
+                    recentQuestions.Add(_questions.Find(questionID));
+                }
+            }
+            ViewBag.RecentQuestions = recentQuestions;
             return View();
         }
 
+        // Question grid loaded
+        // GET: [/Home]/QuestionGrid
+        [HttpGet]
+        public IActionResult QuestionGrid(string ColumnIndex = "-1", string SortAsc = "false", string UseSearchGrid = "false")
+        {
+            int columnIndex = -1;
+            bool sortAsc = false;
+            bool useSearchGrid = false;
+            bool.TryParse(UseSearchGrid, out useSearchGrid);
+            if (useSearchGrid)
+            {
+                int.TryParse(ColumnIndex, out columnIndex);
+                bool.TryParse(SortAsc, out sortAsc);
+            }
+            IEnumerable<Question> questionList = _questions.GetAll().Where(q => !q.QuestionPost.DeletedFlag);
+            ViewData["columnIndex"] = columnIndex;
+            ViewData["sortAsc"] = sortAsc;
+            ViewData["useSearchGrid"] = useSearchGrid;
+
+            if (!useSearchGrid && columnIndex == -1)
+                questionList = questionList.OrderByDescending(q => q.LastActivityDate);
+
+            return PartialView("MvcGrid/_QuestionGrid", questionList);
+        }
+
+        // Timeout modal loaded
+        // GET: [/Home]/Timeout
         [HttpGet]
         public IActionResult Timeout()
         {
             return View();
         }
 
-        [HttpGet]
-        public IActionResult QuestionGrid(String param)
-        {
-            return PartialView("MvcGrid/_QuestionGrid", questions.GetAll());
-        }
-
-        [HttpGet]
-        public IActionResult ViewQuestion()
-        {
-            return View();
-        }
-
-        [HttpGet]
-        public IActionResult EditQuestion()
-        {
-            return View();
-        }
-
-        //
-        // POST: /Home/GetTagForTagName
-        [HttpPost]
-        public JsonResult GetTagForTagName(String tagName)
-        {
-            Tag tag = tags.Find(tagName);
-
-            return Json(new object[] { tag != null ? tag.TagID : 0, tag != null ? tag.TagName : tagName });
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public IActionResult PostQuestion(PostQuestionViewModel model, string returnUrl = null)
-        {
-            if (ModelState.IsValid)
-            {
-                Question question = new Question();
-                question.Summary = model.Summary;
-                question.PostDate = new DateTime();
-                foreach (Tag t in model.Tags)
-                {
-                    if (tags.Find(t.TagID) != null)
-                    {
-                        tags.Add(t);
-                    }
-                }
-                questions.Add(question);
-
-                Post questionPost = new Post();
-                questionPost.QuestionID = question.QuestionID;
-                questionPost.Contents = model.Content;
-                questionPost.UserID = null;
-                questionPost.PostDate = new DateTime();
-                questionPost.QuestionPostID = 1;
-
-                question.Posts.Add(questionPost);
-
-                questions.Update(question);
-            }
-
-            return View(model);
-        }
-
-        public IActionResult About()
-        {
-            ViewData["Message"] = "Your application description page.";
-
-            return View();
-        }
-
-        public IActionResult Contact()
-        {
-            ViewData["Message"] = "Your contact page.";
-
-            return View();
-        }
-
+        // Error page loaded
+        // GET: [/Home]/Error
         public IActionResult Error()
         {
             return View();

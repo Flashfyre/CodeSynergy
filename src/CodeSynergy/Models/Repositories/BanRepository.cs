@@ -1,5 +1,6 @@
 ﻿using CodeSynergy.Data;
 using CodeSynergy.Models.Repositories;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,12 +19,12 @@ namespace CodeSynergy.Models.Repositories
 
         public IEnumerable<Ban> GetAll()
         {
-            return context.Bans.AsEnumerable();
+            return context.Bans.Include(b => b.BanningUser).Include(b => b.BannedUser).AsEnumerable();
         }
 
         public IEnumerable<Ban> GetAllForUser(ApplicationUser user, Boolean activeOnly = true)
         {
-            return context.Bans.Where(b => b.BannedUserID == user.Id && (!activeOnly || b.Active)).AsEnumerable();
+            return context.Bans.Where(b => b.BannedUserID == user.Id && (!activeOnly || b.Active)).Include(b => b.BanningUser).Include(b => b.BannedUser).ThenInclude(u => u.Roles).AsEnumerable();
         }
 
         public void Add(Ban item)
@@ -34,12 +35,12 @@ namespace CodeSynergy.Models.Repositories
 
         public Ban Find(int id)
         {
-            return context.Bans.SingleOrDefault(t => t.BanID == id);
+            return context.Bans.Include(b => b.BanningUser).Include(b => b.BannedUser).ThenInclude(u => u.Roles).SingleOrDefault(t => t.BanID == id);
         }
 
         public Ban Find(string userDisplayName)
         {
-            return context.Bans.SingleOrDefault(t => t.BannedUser.DisplayName.ToLower() == userDisplayName.ToLower());
+            return context.Bans.Include(b => b.BanningUser).Include(b => b.BannedUser).ThenInclude(u => u.Roles).SingleOrDefault(t => t.BannedUser.DisplayName.ToLower() == userDisplayName.ToLower());
         }
         
 
@@ -48,9 +49,7 @@ namespace CodeSynergy.Models.Repositories
             bool successful = context.Bans.Remove(BanIn) != null;
 
             if (successful)
-            {
                 context.SaveChanges();
-            }
 
             return successful;
         }

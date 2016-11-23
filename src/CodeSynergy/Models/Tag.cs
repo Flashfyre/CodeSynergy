@@ -1,4 +1,6 @@
-﻿using System;
+﻿using CodeSynergy.Data;
+using CodeSynergy.Helpers;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -7,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace CodeSynergy.Models
 {
-    public class Tag
+    public class Tag : ISearchable
     {
         [Key]
         [Required]
@@ -16,5 +18,39 @@ namespace CodeSynergy.Models
         [Required]
         [Column(TypeName = "nvarchar(32)")]
         public string TagName { get; set; }
+        [NotMapped]
+        public string FormattedTagName {
+            get
+            {
+                return TagName.Replace('_', ' ');
+            }
+        }
+        [NotMapped]
+        List<Question> TaggedQuestions
+        {
+            get
+            {
+                using (var context = new ApplicationDbContext())
+                {
+                    return context.QuestionTags.Where(qt => qt.TagID == TagID).Select(qt => qt.Question).ToList();
+                }
+            }
+        }
+        [NotMapped]
+        public int TaggedQuestionsCount
+        {
+            get
+            {
+                using (var context = new ApplicationDbContext())
+                {
+                    return context.QuestionTags.Where(qt => qt.TagID == TagID).Count();
+                }
+            }
+        }
+
+        public string[] GetSearchText()
+        {
+            return new string[] { FormattedTagName };
+        }
     }
 }

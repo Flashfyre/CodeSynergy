@@ -8,6 +8,11 @@
  * http://www.opensource.org/licenses/mit-license.php
  */
 
+.mvc-grid.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 .mvc-grid th {
     background-clip: padding-box;
     position: relative;
@@ -17,8 +22,7 @@
     padding-right: 30px;
 }
 
-.mvc-grid .sortable,
-.mvc-grid .mvc-grid-filter {
+.mvc-grid .sortable, .mvc-grid .mvc-grid-filter {
     cursor: pointer;
 }
 
@@ -154,4 +158,8 @@
 
 .mvc-grid-pager li {
     cursor: pointer;
+}
+
+.mvc-grid-pager ul.pagination {
+    margin: 0;
 }

@@ -74,10 +74,10 @@
             return UserRoleSelectFilter;
         })();
 
-        $("#changeRoleBtn").click(function () {
+        $("#changeRoleBtn:not(:disabled)").click(function () {
             $.ajax({
                 type: "POST",
-                url: 'Admin/ChangeUserRole',
+                url: '/Admin/ChangeUserRole',
                 contentType: "application/x-www-form-urlencoded; charset=utf-8",
                 data: {
                     userId: $("#userId").val(),
@@ -88,7 +88,7 @@
                 success: function (data) {
                     if (data[0] == 0) {
                         $('#changeRoleSelect, #changeRoleBtn').attr('disabled', true);
-                        $('.mvc-grid').mvcgrid({
+                        $('#modal .mvc-grid').mvcgrid({
                             reloadStarted: function (grid) {
                                 $("#userRoleGrid").css("opacity", 0.5);
                             },
@@ -101,11 +101,22 @@
                         alert(data[1]);
                     }
                 },
-                error: function () { alert("Error: Something went wrong changing the user role"); }
+                error: function () { alert("Error: Something went wrong while attempting change the user role."); }
             });
         });
 
-        $('.mvc-grid').mvcgrid({
+        var gridName = "userRoleGrid";
+        var gridData = localStorage.getItem("gridData") != null ? JSON.parse(localStorage.getItem("gridData")) : null;
+        if (gridData == null) {
+            gridData = {};
+            gridData[gridName] = { "columnIndex": 4, "sortAsc": false };
+            localStorage.setItem("gridData", JSON.stringify(gridData));
+        } else if (gridData[gridName] == null) {
+            gridData[gridName] = { "columnIndex": 4, "sortAsc": false };
+            localStorage.setItem("gridData", JSON.stringify(gridData));
+        }
+
+        $('#modal .mvc-grid').mvcgrid({
             filters: {
                 'UserRoleSelect': new UserRoleSelectFilter()
             },
@@ -134,38 +145,29 @@
     });
 </script>
 
-<table>
-    <tr>
-        <td>
-            <h2>@ViewData["Title"]</h2>
-            <h4>Manage User Roles</h4>
-            <hr />
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <div>
-                <section>
-                    @Html.AjaxGrid(Url.Action("UserRoleGrid", new { }))
-                </section>
-                <br />
-                <input id="userId" type="hidden" />
-                <select id="changeRoleSelect" class="form-control" style="float: left;" disabled>
-                    @if (User.Identity.Name == "admin@codesynergy.com")
-                    {
-                        <option value="Administrator">
-                            Administrator
-                        </option>
-                    }
-                    <option value="Moderator">
-                        Moderator
-                    </option>
-                    <option value="Member">
-                        Member
-                    </option>
-                </select>
-                <button id="changeRoleBtn" class="btn btn-primary" style="margin-left: 10px;" disabled>Change Role</button>
-            </div>
-        </td>
-    </tr>
-</table>
+
+<section>
+    @Html.AjaxGrid(Url.Action("UserRoleGrid", new  { ColumnIndex = (Context.Request.Query.Keys.Contains("userRoleGrid[columnIndex]") ? (string) Context.Request.Query["userRoleGrid[columnIndex]"] : null),
+    SortAsc = (Context.Request.Query.Keys.Contains("userRoleGrid[sortAsc]") ? (string) Context.Request.Query["userRoleGrid[sortAsc]"] : null) }))
+</section>
+<br />
+<input id="userId" type="hidden" />
+<div class="col-md-8">
+    <select id="changeRoleSelect" class="form-control" style="float: left;" disabled>
+        @if (User.Identity.Name == "admin@codesynergy.com")
+        {
+            <option value="Administrator">
+                Administrator
+            </option>
+        }
+        <option value="Moderator">
+            Moderator
+        </option>
+        <option value="Member">
+            Member
+        </option>
+    </select>
+</div>
+<div class="col-md-4">
+    <a id="changeRoleBtn" href="javascript:void(0);" class="btn btn-primary btn-block left" style="margin-left: 10px;" disabled>Change Role</a>
+</div>

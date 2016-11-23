@@ -1,14 +1,25 @@
 ﻿<environment names="Development">
     <script src="~/lib/jquery-validation/dist/jquery.validate.js"></script>
     <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.js"></script>
+    <script src="~/lib/jquery-validation/dist/additional-methods.js"></script>
 </environment>
 <environment names="Staging,Production">
-    <script src="https://ajax.aspnetcdn.com/ajax/jquery.validate/1.14.0/jquery.validate.min.js"
-            asp-fallback-src="~/lib/jquery-validation/dist/jquery.validate.min.js"
-            asp-fallback-test="window.jQuery && window.jQuery.validator">
-    </script>
-    <script src="https://ajax.aspnetcdn.com/ajax/mvc/5.2.3/jquery.validate.unobtrusive.min.js"
-            asp-fallback-src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"
-            asp-fallback-test="window.jQuery && window.jQuery.validator && window.jQuery.validator.unobtrusive">
-    </script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/additional-methods.min.js"></script>
 </environment>
+
+<!-- // This alteration of the jQuery range validation is taken from http://jasonwatmore.com/post/2013/10/16/aspnet-mvc-required-checkbox-with-data-annotations -->
+<script type="text/javascript">
+    // extend range validator method to treat checkboxes differently
+    var defaultRangeValidator = $.validator.methods.range;
+    $.validator.methods.range = function (value, element, param) {
+        if (element.type === 'checkbox') {
+            // if it's a checkbox return true if it is checked
+            return element.checked;
+        } else {
+            // otherwise run the default validation function
+            return defaultRangeValidator.call(this, value, element, param);
+        }
+    }
+</script>

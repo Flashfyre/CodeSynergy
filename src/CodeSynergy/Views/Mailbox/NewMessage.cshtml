@@ -1,0 +1,58 @@
+﻿@model PrivateMessageViewModel
+
+@inject UserManager UserManager
+
+@{
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+}
+
+<script type="text/javascript">
+    var githubID = @{ @Html.Raw(user != null && user.GitHubID != null ? "\"" + user.GitHubID + "\"" : "null"); };
+    var githubRepoData = null;
+
+    $(document).ready(function () {
+        window.setTimeout(function() {
+            $("#modal .close-modal > i, .btn-new-message").click(function () {
+                $("#modal .mce-tinymce").remove();
+            });
+            initModalEditors();
+        }, 10);
+    });
+</script>
+
+<form id="newMessageForm" asp-controller="Mailbox" asp-route-returnurl="@ViewData["ReturnUrl"]" method="post" class="form-horizontal" role="form">
+    <div class="form-group">
+        <label asp-for="DisplayName" class="col-md-2 control-label"></label>
+        <div class="col-md-10">
+            <input asp-for="DisplayName" class="form-control" maxlength="20" />
+            <span asp-validation-for="DisplayName" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="Summary" class="col-md-2 control-label"></label>
+        <div class="col-md-10">
+            <input asp-for="Summary" class="form-control" maxlength="64" />
+            <span asp-validation-for="Summary" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="Contents" class="col-md-2 control-label"></label>
+        <div class="col-md-10">
+            <textarea asp-for="Contents" maxlength="4000"></textarea>
+            <span asp-validation-for="Contents" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="col-md-2"></div>
+        <div class="col-md-10">
+            <button type="submit" class="btn btn-primary">Send Message</button>
+        </div>
+    </div>
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}
+
+<script src="~/js/inittexteditors.js"></script>

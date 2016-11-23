@@ -1,12 +1,24 @@
 ﻿@{
-    var pageName = ViewContext.HttpContext.Request.Path.Value.Substring(ViewContext.HttpContext.Request.Path.Value.LastIndexOf("/") + 1);
+    var pageName = ViewContext.View.Path.Substring(ViewContext.View.Path.IndexOf("Views/") + 6);
+    pageName = pageName.Substring(0, pageName.LastIndexOf("."));
     switch (pageName) {
-        case "Login":
-        case "Register":
-        case "Moderation":
-        case "UserRoles":
-        case "Timeout":
+        case "Account/Login":
+        case "Account/Register":
+        case "Account/Settings":
+        case "Mailbox/Index":
+        case "Mailbox/ReportItem":
+        case "Question/RelatedQuestions":
+        case "Question/SimilarQuestions":
+        case "Admin/Moderation":
+        case "Admin/UserRoles":
+        case "Home/Timeout":
             Layout = "_LayoutModal";
+            break;
+        case "Mailbox/NewMessage":
+        case "Mailbox/UserMailboxItem":
+        case "Mailbox/ModerationMailboxItem":
+        case "Mailbox/PrivateMessage":
+            Layout = "_LayoutModalPartial";
             break;
         default:
             Layout = "_Layout";

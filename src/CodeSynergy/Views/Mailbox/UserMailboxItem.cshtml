@@ -1,0 +1,129 @@
+﻿@model PrivateMessageViewModel
+
+@inject UserManager UserManager
+
+@{ 
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+    ApplicationUser originalSender = Model.Item.Message.SenderUser;
+}
+
+<script type="text/javascript">
+    var githubID = @{ @Html.Raw(user != null && user.GitHubID != null ? "\"" + user.GitHubID + "\"" : "null"); };
+    var githubRepoData = null;
+
+    function clearAutosaveData() {
+        localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-Contents-draft");
+        localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-Contents-time");
+    }
+
+    function init() {
+        $("#modal .close-modal > i").click(function () {
+            $(".mailbox-item-row.open").removeClass("open");
+            $("#modal .mce-tinymce").remove();
+        });
+
+        $("#btn-cancel").click(function () {
+            $('textarea[name=Contents]:last').each(function () { clearAutosaveData(); $(this).clone().show().insertAfter($(this)); $(this).prev().remove(); $(this).remove(); });
+            initModalEditors();
+            $(this).parent().parent().parent().parent().addClass("hidden");
+            $("#btn-reply").show().next().hide();
+
+            return false;
+        });
+
+        $("#btn-cancel").trigger("click");
+
+        $("#btn-reply").click(function () {
+            if ($(this).parent().next().hasClass("hidden"))
+                $(this).hide().next().show().parent().next().removeClass("hidden");
+            else
+                $(this).show().next().hide().parent().next().addClass("hidden");
+        });
+
+        $(".btn-star").click(function() {
+            var $btn = $(this);
+            var mailboxType = $btn.attr("data-mailbox-type-id");
+            var mailboxItemID = $btn.attr("data-mailbox-item-id");
+            var isUndo = $btn.hasClass("starred");
+            var $row = $(".mailbox-item-row[data-mailbox-type-id=" + mailboxType + "][data-mailbox-item-id=" + mailboxItemID + "]");
+
+            $btn.addClass("disabled");
+
+            $.ajax({
+                type: "POST",
+                url: '/Mailbox/StarItem',
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                data: {
+                    MailboxTypeID: mailboxType,
+                    MailboxItemID: mailboxItemID,
+                    IsUndo: isUndo
+                },
+                dataType: "json",
+                success: function (data) {
+                    // If action succeeded
+                    if (data[0]) {
+                        // Toggle the starred class for rows matching the selected row
+                        if (isUndo) {
+                            var privateMessageID = $row.attr("data-private-message-id");
+                            $(".mailbox-item-row[data-private-message-id=" + privateMessageID + "]").removeClass("mailbox-item-row-starred");
+                            $("#mailboxListTable@((byte) EnumMailboxType.Starred) > tbody > tr.mailbox-item-row[data-private-message-id=" + privateMessageID + "]").remove(); // Remove the starred item
+                            $btn.removeClass("starred").removeClass("fa-star").addClass("fa-star-o");
+                            $(".mailbox-item-row[data-private-message-id=" + $row.attr("data-private-message-id") + "] .mailbox-item-summary > .mailbox-item-star").remove(); // Remove the star next to the item summaries
+                            // Show the placeholder for the starred table if necessary
+                            if ($("#mailboxListTable@((byte) EnumMailboxType.Starred) > tbody > tr.mailbox-item-row:not(.hidden)").length === 0)
+                                $("#mailboxListTable@((byte) EnumMailboxType.Starred) > tbody > tr.mailbox-item-row-empty").removeClass("hidden");
+                            // If the open message is from the starred item that was just removed, change the item/type ids of the open message to the first match in other inboxes to avoid conflicts
+                            if ($btn.attr("data-mailbox-type-id").toString() == "@((byte )EnumMailboxType.Starred)") {
+                                var $newSelectedRow = $(".mailbox-item-row[data-private-message-id=" + privateMessageID + "]:not(.hidden):first");
+                                $("#mailboxItemTable [data-mailbox-type-id]").attr("data-mailbox-type-id", $newSelectedRow.attr("data-mailbox-type-id")).attr("data-mailbox-item-id", $newSelectedRow.attr("data-mailbox-item-id"));
+                            }
+                        } else {
+                            $(".mailbox-item-row[data-private-message-id=" + $row.attr("data-private-message-id") + "]").addClass("mailbox-item-row-starred");
+                            $btn.addClass("starred").removeClass("fa-star-o").addClass("fa-star");
+                            $(".mailbox-item-row[data-private-message-id=" + $row.attr("data-private-message-id") + "] .mailbox-item-summary")
+                                .append('<span class="mailbox-item-star">&nbsp;<i class="fa fa-star btn-star starred"></i></span>'); // Add a star next to the item summaries
+                            // Create a copy of the clicked item with the appropriate data changes
+                            var $newItem = $row.clone(true).attr("data-mailbox-type-id", @((byte) EnumMailboxType.Starred)).attr("data-mailbox-item-id", data[3]);
+                            // Set the new item's checkbox's new name, uncheck its checkbox
+                            $newItem.find(".mailbox-item-select").attr("name", "select-" + $newItem.attr("data-mailbox-type-id") + "-" + $newItem.attr("data-mailbox-item-id")).prop("checked", null);
+                            $("#mailboxListTable" + $newItem.attr("data-mailbox-type-id") + " > tbody").append($newItem); // Append the new item to the starred tab
+                            $(".mailbox-sort[data-mailbox-type-id=" + $newItem.attr("data-mailbox-type-id") + "]").trigger("change"); // Sort the items so that the new item is in its correct position
+                            $("#mailboxListTable" + $newItem.attr("data-mailbox-type-id") + " > tbody > tr.mailbox-item-row-empty").addClass("hidden"); // Hide the placeholder for the starred table if necessary
+                        }
+
+                        $(".mailbox-user-unread-count > label").html(data[1]); // Update the unread items count
+
+                        if (data[1] == 0) // If the count is 0, hide the count
+                            $(".mailbox-user-unread-count").addClass("hidden");
+                        else // If the count is above 0, show the count
+                            $(".mailbox-user-unread-count").removeClass("hidden");
+
+                        if (data[2] != null) { // If the user is a moderator or administrator
+                            $(".mailbox-moderation-unread-count > label").html(data[2]); // Update the moderation items count
+
+                            if (data[2] == 0) // If the count is 0, hide the count
+                                $(".mailbox-moderation-unread-count").addClass("hidden");
+                            else // If the count is above 0, show the count
+                                $(".mailbox-moderation-unread-count").removeClass("hidden");
+
+                            if (data[1] > 0 && data[2] > 0) // If the user and moderation item counts are both visible, add the stack class to the moderation count
+                                $(".mailbox-moderation-unread-count").addClass("stack");
+                            else // If only one count is visible, hide the stack class
+                                $(".mailbox-moderation-unread-count").removeClass("stack");
+                        }
+                    } else // If the action failed, output the error message
+                        alert(data[1]);
+
+                    $btn.removeClass("disabled");
+                },
+                error: function () {
+                    // Display an error message
+                    alert("Error: Something went wrong while attempting to " + (isUndo ? "un" : "") + "star the mailbox item.");
+                    $btn.removeClass("disabled");
+                }
+            });
+        });
+    }
+</script>
+
+@await Html.PartialAsync("MailboxItem", Model)

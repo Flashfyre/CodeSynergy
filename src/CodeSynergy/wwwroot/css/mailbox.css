@@ -1,0 +1,185 @@
+﻿#modal > div#modal-content > div {
+    height: 100%;
+    overflow-y: auto;
+}
+
+#mailbox-list-container, #mailbox-content-container {
+    height: calc(100% - 41px);
+    height: -webkit-calc(100% - 41px);
+    border: 1px solid #ddd;
+    border-top-width: 0;
+    padding: 0.5em 0 0 0;
+}
+
+#mailbox-list-container {
+    overflow-y: hidden;
+}
+
+#mailbox-content-container {
+    overflow-y: auto;
+}
+
+#mailbox-content-container a {
+    text-decoration: none;
+}
+
+#mailbox-list-container > div {
+    padding: 0.25em 0 0 0;
+    height: 100%;
+}
+
+#mailbox-list-container div.col-md-1 {
+    padding-right: 0;
+}
+
+#mailbox-list-container div.col-md-1 + div {
+    padding-left: 0;
+}
+
+.mailbox-list-table-container {
+    width: 100%;
+}
+
+.mailbox-list-table {
+    height: 100%;
+}
+
+.mailbox-list-table.loading {
+    opacity: 0.5;
+}
+
+.mailbox-list-table > tbody > tr.mailbox-item-row {
+    height: 25px;
+}
+
+.mailbox-list-table > tbody > tr.mailbox-item-row > td {
+    padding: 0;
+}
+
+.mailbox-controls {
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5em;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.mailbox-controls > div.col-md-3 {
+    min-height: 33px;
+}
+
+.btn-star, .btn-report, .btn-ban, .mailbox-item-row > td > .mailbox-item > .mailbox-item-summary > .mailbox-item-assign > i {
+    color: #004080;
+}
+
+.mailbox-item-row:not(.mailbox-item-row-empty) {
+    cursor: pointer;
+}
+
+.mailbox-item-row.open > td > .mailbox-item > .mailbox-item-display-name > label, .mailbox-item-row.open > td > .mailbox-item > .mailbox-item-display-name > label > .role-badge,
+    .mailbox-item-row.open > td > .mailbox-item > .mailbox-item-summary > .mailbox-item-assign > i {
+    color: inherit;
+}
+
+.mailbox-item-row > td > .mailbox-item {
+    background-color: rgba(255, 255, 255, 0.25);
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 0.5em;
+}
+
+.mailbox-item-row > td > .mailbox-item > div > label {
+    margin: 0;
+}
+
+.mailbox-item-row:not(.mailbox-item-row-empty):hover > td {
+    background-color: rgba(0, 127, 63, 0.25);
+}
+
+.mailbox-item-row.mailbox-item-row-unread > td > .mailbox-item {
+    background-color: rgba(255, 255, 127, 0.25);
+    border-color: #bbbb7b;
+}
+
+.mailbox-item-row.mailbox-item-row-unread > td > .mailbox-item > div {
+    font-weight: bold;
+}
+
+.mailbox-item-row.mailbox-item-row-starred > td > .mailbox-item {
+    background-color: rgba(255, 215, 0, 0.25);
+    border-color: #ffd700;
+}
+
+.mailbox-item-row.mailbox-item-row-assigned > td > .mailbox-item, #mailbox-content-container .assign-info {
+    background-color: rgba(255, 215, 0, 0.25);
+    border-color: #ffd700;
+}
+
+.mailbox-item-row.mailbox-item-row-resolved > td > .mailbox-item, #mailbox-content-container .resolve-info {
+    background-color: rgba(0, 127, 63, 0.25);
+    border-color: #00d090;
+}
+
+.mailbox-item-row.open > td > .mailbox-item {
+    background-color: #004080;
+    border-color: #002040;
+    color: #ffffff;
+}
+
+#mailbox-content-container .assign-info, #mailbox-content-container .resolve-info {
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 0.5em;
+    margin-bottom: 0.5em;
+    padding: 1em;
+}
+
+#mailbox-content-container .assign-info > p, #mailbox-content-container .resolve-info > p {
+    margin: 0;
+}
+
+#mailbox-item-table-container {
+    padding: 0.25em 0.5em 0 0.5em;
+}
+
+#mailboxItemTable > tbody > tr > td.message-profile-image {
+    width: 48px;
+    padding-right: 0.5em;
+}
+
+#mailboxItemTable > tbody > tr > td.message-star, #mailboxItemTable > tbody > tr > td.message-report {
+    width: 26px;
+    padding-left: 0.5em;
+}
+
+#mailboxItemTable > tbody > tr > td.message-star > .btn-star, #mailboxItemTable > tbody > tr > td.message-report > .btn-report, #mailboxItemTable > tbody > tr > td.message-ban > .btn-ban {
+    transition: all 0.2s ease-in;
+    cursor: pointer;
+}
+
+#mailboxItemTable > tbody > tr > td.message-star, #mailboxItemTable > tbody > tr > td.message-sent-date, #mailboxItemTable > tbody > tr > td.message-report, #mailboxItemTable > tbody > tr > td.message-ban {
+    text-align: right;
+}
+
+#mailboxItemTable > tbody > tr > td.message-body {
+    padding-top: 0.5em;
+}
+
+form#messageReplyForm > .form-group, form#newMessageForm > .form-group {
+    width: 100%;
+}
+
+form#messageReplyForm > .form-group > .col-md-10, form#newMessageForm > .form-group > .col-md-1 {
+    padding-right: 0;
+}
+
+a.btn.disabled {
+    cursor: not-allowed;
+}
+
+.btn-report:hover, .btn-ban:hover {
+    color: #800000;
+}
+
+hr.separator {
+    margin: 0.5em 0;
+}

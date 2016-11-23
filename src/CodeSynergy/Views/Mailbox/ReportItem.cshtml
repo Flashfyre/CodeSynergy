@@ -1,0 +1,61 @@
+﻿@model ReportViewModel
+
+@{
+    ViewData["Title"] = "Report " + Model.ReportedItem.GetReportType().DisplayName();
+}
+
+<script type="text/javascript">
+    $(document).ready(function () {
+    });
+</script>
+
+<style type="text/css">
+    label.content-label {
+        font-weight: normal;
+        text-align: left !important;
+    }
+</style>
+
+<section class="col-md-12">
+    <form asp-controller="Mailbox" asp-action="ReportItem" asp-route-returnurl="@ViewData["ReturnUrl"]" method="post" class="form-horizontal" role="form">
+        <input asp-for="ReportTypeID" type="hidden" />
+        <input asp-for="ReportedItemID" type="hidden" />
+        <input asp-for="ReporterDisplayName" type="hidden" />
+        <div class="form-group">
+            <label asp-for="AcceptRules" class="col-md-2 control-label"></label>
+            <div class="col-md-10">
+                <p>For a report to be valid, the reported content must contain one or more of the following:</p>
+                <ul>
+                    @foreach (string r in Model.ReportRules)
+                    {
+                        <li>@r</li>
+                    }
+                </ul>
+                <p>Abuse of this feature may result in a temporary ban and a permanent ban if abuse continues.</p>
+                <input asp-for="AcceptRules" />&nbsp;<label for="AcceptRules">I consent to the rules above</label>
+                <span asp-validation-for="AcceptRules" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="ReportedItemDescription" class="col-md-2 control-label">Report for</label>
+            <label class="control-label content-label col-md-10">@Html.Raw(Model.ReportedItem.GetReportableItemDescription())</label>
+        </div>
+        <div class="form-group">
+            <label asp-for="ReportReason" class="col-md-2 control-label"></label>
+            <div class="col-md-10">
+                <textarea asp-for="ReportReason" class="form-control" rows="4" maxlength="255" />
+                <span asp-validation-for="ReportReason" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <button type="submit" class="btn btn-default">Send Report</button>
+            </div>
+        </div>
+        @Html.AntiForgeryToken()
+    </form>
+</section>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

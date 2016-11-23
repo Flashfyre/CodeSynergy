@@ -1,0 +1,39 @@
+﻿@using NonFactors.Mvc.Grid;
+
+@inject UserManager UserManager
+
+@model IEnumerable<Question>
+
+@{
+    const string gridName = "similarQuestionGrid";
+    int sortIndex = (int) ViewData["columnIndex"];
+    bool sortAsc = (bool) ViewData["sortAsc"];
+    bool useSearchGrid = (bool)ViewData["useSearchGrid"];
+    ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
+}
+
+@(Html.Grid(Model).Named(gridName).Build(columns =>
+{
+    columns.Add(model => model.QuestionID).Titled("Hidden ID").Css("hidden");
+    columns.Add(model => model.QuestionPost.Score).Titled("<i class=\"fa fa-unsorted fa-2x\" title=\"Score\"></i>").Encoded(false).RenderedAs(model => "<h2 class='score'>" + model.QuestionPost.Score + "</h2>").Css("center");
+    columns.Add(model => model.Stars.Count).Titled("<i class=\"fa fa-star fa-2x\" title=\"Stars\"></i>").Encoded(false).RenderedAs(model => "<h2 class='star-count'>" + model.Stars.Count + "</h2>").Css("center");
+    columns.Add(model => model.AnswerCount).Titled("<i class=\"fa fa-comments fa-2x\" title=\"Answers\"></i>").Encoded(false).RenderedAs(model => "<h2 class='answer-count'>" + model.AnswerCount + "</h2>").Css("center");
+    columns.Add(model => model.ViewCount).Titled("<i class=\"fa fa-eye fa-2x\" title=\"Views\"></i>").Encoded(false).RenderedAs(model => "<h4 class='view-count'>" + model.ViewCount + "</h4>").Css("center");
+    if (!useSearchGrid)
+    {
+        columns.Add(model => model.Summary).Titled("").Encoded(false).RenderedAs(model => model.SummaryHtml + "<br />" + model.TagsHTMLSmall + "<span style='float: right;'>" + model.LastActivityHtml + "</span>");
+    }
+    else
+    {
+        columns.Add(model => model.Summary).Titled("").Encoded(false).RenderedAs(model => model.SummaryHtml);
+        columns.Add(model => model.TagsString).Titled("<i class=\"fa fa-tag fa-2x\" title=\"Tags\"></i>").Encoded(false).RenderedAs(model => model.TagsHTMLSmall);
+        columns.Add(model => model.LastActivityDate).Titled("<i class=\"fa fa-clock-o fa-2x\" title=\"Last Activity\"></i>").Encoded(false).RenderedAs(model => model.LastActivityHtml).Filterable(false);
+    }
+    if (sortIndex != -1 && sortIndex < columns.Count())
+        columns.ElementAt(sortIndex).InitialSort(sortAsc ? GridSortOrder.Asc : GridSortOrder.Desc);
+})
+.Empty("No similar questions found")
+.RowCss(model => user != null && model.QuestionPost.UserID == user.Id ? "user-highlight" : "")
+.Sortable(useSearchGrid)
+.Filterable(useSearchGrid)
+.Pageable())

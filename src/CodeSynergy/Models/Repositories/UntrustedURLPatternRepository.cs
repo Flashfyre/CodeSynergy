@@ -1,5 +1,6 @@
 ﻿using CodeSynergy.Data;
 using CodeSynergy.Models.Repositories;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,7 +19,7 @@ namespace CodeSynergy.Models.Repositories
 
         public IEnumerable<UntrustedURLPattern> GetAll()
         {
-            return context.UntrustedURLPatterns.AsEnumerable();
+            return context.UntrustedURLPatterns.Include(p => p.AddedByUser).ThenInclude(u => u.Roles).Include(p => p.LastUpdatedByUser).AsEnumerable();
         }
 
         public void Add(UntrustedURLPattern item)
@@ -29,7 +30,7 @@ namespace CodeSynergy.Models.Repositories
 
         public UntrustedURLPattern Find(int id)
         {
-            return context.UntrustedURLPatterns.SingleOrDefault(t => t.PatternID == id);
+            return context.UntrustedURLPatterns.Include(p => p.AddedByUser).ThenInclude(u => u.Roles).Include(p => p.LastUpdatedByUser).SingleOrDefault(t => t.PatternID == id);
         }
 
         public bool Remove(UntrustedURLPattern UntrustedURLPatternIn)

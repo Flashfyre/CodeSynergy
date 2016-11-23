@@ -8,8 +8,8 @@
             <tr>
                 @foreach (IGridColumn column in Model.Columns)
                 {
-                    String filterableClass = column.IsFilterable == true ? "filterable" : null;
-                    String sortableClass = column.IsSortable == true ? "sortable" : null;
+                    string filterableClass = column.IsFilterable == true ? "filterable" : null;
+                    string sortableClass = column.IsSortable == true ? "sortable" : null;
 
                     <th class="@filterableClass @sortableClass @column.CssClasses"
                         data-name="@column.Name"
@@ -34,7 +34,7 @@
                         }
                         @if (column.IsFilterable == true)
                         {
-                            String filterApplied = column.Filter != null && (column.Filter.First != null || column.Filter.Second != null) ? "applied" : "";
+                            string filterApplied = column.Filter != null && (column.Filter.First != null || column.Filter.Second != null) ? "applied" : "";
                             <span class="mvc-grid-filter @filterApplied"></span>
                         }
                     </th>
