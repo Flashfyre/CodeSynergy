@@ -8,6 +8,7 @@
     var editPattern = false;
 
     $(document).ready(function () {
+        // Set ban button click event
         $("#banBtn:not(:disabled)").click(function () {
             $.ajax({
                 type: "POST",
@@ -22,7 +23,8 @@
                 },
                 dataType: "json",
                 success: function (data) {
-                    if (data[0] == 0) {
+                    if (data[0] == 0) { // Action succeeded
+                        // Reload user ban grid
                         $('#userBanGrid').mvcgrid({
                             reloadStarted: function (grid) {
                                 $("#userBanGrid").css("opacity", 0.5);
@@ -32,13 +34,14 @@
                             },
                             reload: true
                         });
-                    } else
+                    } else // Action failed: display error message
                         alert(data[1]);
                 },
                 error: function () { alert("Error: Something went wrong while attempting to ban the user"); }
             });
         });
 
+        // Set change ban term button click event
         $("#banTermBtn:not(:disabled)").click(function () {
             $.ajax({
                 type: "POST",
@@ -52,7 +55,8 @@
                 },
                 dataType: "json",
                 success: function (data) {
-                    if (data[0] == 0) {
+                    if (data[0] == 0) { // Action succeeded
+                        // Reload user ban grid
                         $('#userBanGrid').mvcgrid({
                             reloadStarted: function (grid) {
                                 $("#userBanGrid").css("opacity", 0.5);
@@ -62,13 +66,14 @@
                             },
                             reload: true
                         });
-                    } else
+                    } else // Action failed: display error message
                         alert(data[1]);
                 },
                 error: function () { alert("Error: Something went wrong while attempting to change the ban term"); }
             });
         });
 
+        // Set lift ban button click event
         $("#liftBanBtn:not(:disabled)").click(function () {
             $.ajax({
                 type: "POST",
@@ -81,8 +86,8 @@
                 },
                 dataType: "json",
                 success: function (data) {
-                    if (data[0] == 0) {
-                        $('#userBanGrid').mvcgrid({
+                    if (data[0] == 0) { // Action succeeded
+                        $('#userBanGrid').mvcgrid({ // Reload user ban grid
                             reloadStarted: function (grid) {
                                 $("#userBanGrid").css("opacity", 0.5);
                             },
@@ -91,18 +96,20 @@
                             },
                             reload: true
                         });
-                    } else
+                    } else // Action failed: display error message
                         alert(data[1]);
                 },
                 error: function () { alert("Error: Something went wrong while attempting to lift the ban."); }
             });
         });
 
+        // Set event for typing in the pattern textfield (enabling/disabling buttons according to whether it's empty)
         $("#patternText").keyup(function () {
             $("#addPatternBtn").attr("disabled", editPattern || $(this).val() == "" ? true : null);
             $("#savePatternBtn, #cancelPatternBtn").attr("disabled", !editPattern || $(this).val() == "" ? true : null);
         });
 
+        // Set add pattern button click event
         $("#addPatternBtn:not(:disabled)").click(function () {
             $.ajax({
                 type: "POST",
@@ -115,8 +122,8 @@
                 },
                 dataType: "json",
                 success: function (data) {
-                    if (data[0] == 0) {
-                        $('#untrustedURLPatternGrid').mvcgrid({
+                    if (data[0] == 0) { // Action succeeded
+                        $('#untrustedURLPatternGrid').mvcgrid({ // Reload untrusted URL pattern grid
                             reloadStarted: function (grid) {
                                 $("#untrustedURLPatternGrid").css("opacity", 0.5);
                             },
@@ -125,7 +132,7 @@
                             },
                             reload: true
                         });
-                    } else if (data[1] != null)
+                    } else if (data[1] != null) // Action failed: display error message
                         alert(data[1]);
                 },
                 error: function () { alert("Error: Something went wrong while attempting to add the untrusted URL pattern."); }
@@ -136,6 +143,7 @@
             togglePatternEdit(true);
         });
 
+        // Set save pattern button click event
         $("#savePatternBtn:not(:disabled)").click(function () {
             $.ajax({
                 type: "POST",
@@ -149,8 +157,8 @@
                 },
                 dataType: "json",
                 success: function (data) {
-                    if (data[0] == 0) {
-                        $('#untrustedURLPatternGrid').mvcgrid({
+                    if (data[0] == 0) { // Action succeeded
+                        $('#untrustedURLPatternGrid').mvcgrid({ // Reload untrusted URL pattern grid
                             reloadStarted: function (grid) {
                                 $("#untrustedURLPatternGrid").css("opacity", 0.5);
                             },
@@ -159,7 +167,7 @@
                             },
                             reload: true
                         });
-                    } else if (data[1] != null)
+                    } else if (data[1] != null) // Action failed: display error message
                         alert(data[1]);
                     togglePatternEdit(false);
                 },
@@ -167,10 +175,12 @@
             });
         });
 
+        // Set cancel pattern button click event
         $("#cancelPatternBtn:not(:disabled)").click(function () {
             togglePatternEdit(false);
         });
 
+        // Set delete pattern button click event
         $("#deletePatternBtn:not(:disabled)").click(function () {
             $.ajax({
                 type: "POST",
@@ -182,8 +192,8 @@
                 },
                 dataType: "json",
                 success: function (data) {
-                    if (data[0] == 0) {
-                        $('#untrustedURLPatternGrid').mvcgrid({
+                    if (data[0] == 0) { // Action succeeded
+                        $('#untrustedURLPatternGrid').mvcgrid({ // Reloaded untrusted URL pattern grid
                             reloadStarted: function (grid) {
                                 $("#untrustedURLPatternGrid").css("opacity", 0.5);
                             },
@@ -192,13 +202,14 @@
                             },
                             reload: true
                         });
-                    } else if (data[1] != null)
+                    } else if (data[1] != null) // Action failed: display error message
                         alert(data[1]);
                 },
                 error: function () { alert("Error: Something went wrong while attempting to delete the untrusted URL pattern"); }
             });
         });
 
+        // Create/load cookies for grid sort options
         var gridData = localStorage.getItem("gridData") != null ? JSON.parse(localStorage.getItem("gridData")) : null;
         if (gridData == null) {
             gridData = {};
@@ -216,6 +227,7 @@
             }
         }
 
+        // Initialize grids
         $('#modal .mvc-grid').mvcgrid({
             rowClicked: function (grid, row, data, e) {
                 if (!$(row).children("td:first-child").hasClass("mvc-grid-empty")) {
@@ -257,6 +269,7 @@
         });
     });
 
+    // Enable or disable edit mode for untrusted URL patterns
     function togglePatternEdit(enable) {
         editPattern = enable;
         if ($(".table > tbody > tr.selected").length == 1) {
@@ -295,6 +308,7 @@
             <a id="banBtn" href="javascript:void(0);" class="btn btn-primary btn-block">Ban</a>
         </div>
         @Html.AntiForgeryToken()
+        <br />
         <br />
         <br />
         <section>

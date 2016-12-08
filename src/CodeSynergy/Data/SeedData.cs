@@ -1,4 +1,5 @@
 ﻿using CodeSynergy.Data;
+using CodeSynergy.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -6,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace CodeSynergy.Models
+namespace CodeSynergy.Data
 {
     public static class SeedData
     {
@@ -26477,47 +26478,6 @@ namespace CodeSynergy.Models
                             RegionName = "Harare"
                         }
                     );
-                }
-
-                // If there are no user, add the admin user and user role
-                if (!context.Users.Any())
-                {
-                    ApplicationUser adminUser = new ApplicationUser("admin@codesynergy.net")
-                    {
-                        UserName = "admin@codesynergy.com",
-                        Email = "admin@codesynergy.com",
-                        DisplayName = "Admin",
-                        JobTitle = "Web Administrator",
-                        BirthDate = new DateTime(1995, 05, 11, 0, 0, 0, 0, DateTimeKind.Local),
-                        Gender = true,
-                        CountryID = "CA",
-                        RegionID = "CAON",
-                        City = "Stoney Creek",
-                        GitHubID = "Samuel-H",
-                        ProfileGitHub = true,
-                        ProfileMessage = null,
-                        ExcludeFromRanking = false,
-                        RegistrationDate = DateTime.Now,
-                        LastActivityDate = DateTime.Now,
-                        QuestionsPosted = 0,
-                        AnswersPosted = 0,
-                        CommentsPosted = 0,
-                        QuestionScore = 0,
-                        AnswerScore = 0,
-                        CommentScore = 0,
-                        BestAnswerCount = 0,
-                        StarCount = 0,
-                        ProfileViewCount = 0,
-                        Reputation = 0,
-                        Online = false
-                    };
-                    context.Users.Add(adminUser);
-
-                    context.UserRoles.Add(new IdentityUserRole<string>()
-                    {
-                        RoleId = "Administrator",
-                        UserId = adminUser.Id
-                    });
                 }
 
                 // Save changes to the database

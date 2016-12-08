@@ -14,14 +14,15 @@ namespace CodeSynergy.Controllers
 {
     public class RankingController : Controller
     {
-        private readonly RankingPosRepository _rankingPos;
+        private readonly RankingPosRepository _rankingPos; // Repository for user ranking positions
 
         public RankingController(IRepository<RankingPos, short> rankingPos) : base()
         {
             _rankingPos = (RankingPosRepository) rankingPos;
         }
 
-        // GET: /Ranking/Page/
+        // Rankings page loaded
+        // GET: /Ranking/Page[/Id]
         [HttpGet]
         public IActionResult Index(int Id = 1, string Modal = null)
         {
@@ -29,6 +30,7 @@ namespace CodeSynergy.Controllers
             return View(Id);
         }
 
+        // Rankings grid loaded
         // GET: /Ranking/RankingGrid
         [HttpGet]
         public IActionResult RankingGrid(string ColumnIndex = "-1", string SortAsc = "false", string Page = "1")

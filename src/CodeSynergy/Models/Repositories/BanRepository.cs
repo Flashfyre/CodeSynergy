@@ -19,12 +19,13 @@ namespace CodeSynergy.Models.Repositories
 
         public IEnumerable<Ban> GetAll()
         {
-            return context.Bans.Include(b => b.BanningUser).Include(b => b.BannedUser).AsEnumerable();
+            return context.Bans.Include(b => b.BanningUser).ThenInclude(u => u.Roles).Include(b => b.BannedUser).ThenInclude(u => u.Roles).AsEnumerable();
         }
 
-        public IEnumerable<Ban> GetAllForUser(ApplicationUser user, Boolean activeOnly = true)
+        public IEnumerable<Ban> GetAllForUser(ApplicationUser user, bool activeOnly = true)
         {
-            return context.Bans.Where(b => b.BannedUserID == user.Id && (!activeOnly || b.Active)).Include(b => b.BanningUser).Include(b => b.BannedUser).ThenInclude(u => u.Roles).AsEnumerable();
+            return context.Bans.Where(b => b.BannedUserID == user.Id && (!activeOnly || b.Active)).Include(b => b.BanningUser).ThenInclude(u => u.Roles).Include(b => b.BannedUser)
+                .ThenInclude(u => u.Roles).AsEnumerable();
         }
 
         public void Add(Ban item)

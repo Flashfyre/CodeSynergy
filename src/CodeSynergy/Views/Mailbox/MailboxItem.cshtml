@@ -14,23 +14,25 @@
     $(document).ready(function () {
         init();
 
-        var $listRow = $(".mailbox-item-row[data-@{ @Html.Raw(Model.Item is UserMailboxItem ? "private-message-id=" + (Model.Item as UserMailboxItem).PrivateMessage.PrivateMessageID : "mailbox-type-id=" + Model.Item.MailboxTypeID + "][data-mailbox-item-id=" + Model.Item.MailboxItemID); }]");
+        // Row in the list corresponding to this mailbox item
+        var $listRow = $(".mailbox-item-row[data-@{ @Html.Raw(Model.Item is UserMailboxItem ? "private-message-id=" + (Model.Item as UserMailboxItem).PrivateMessage.PrivateMessageID :
+                "mailbox-type-id=" + Model.Item.MailboxTypeID + "][data-mailbox-item-id=" + Model.Item.MailboxItemID); }]");
 
-        if (!$listRow.hasClass("open")) {
+        if (!$listRow.hasClass("open")) { // Add open class to the corresponding list item if it isn't already
             $(".mailbox-item-row.open").removeClass("open");
             $listRow.addClass("open");
         }
 
-        if ($listRow.hasClass("mailbox-item-row-unread"))
+        if ($listRow.hasClass("mailbox-item-row-unread")) // If the corresponding list item has the unread class, remove it
             $listRow.removeClass("mailbox-item-row-unread");
 
         var unreadCount = @ViewData["UnreadCount"];
 
         $(".mailbox-user-unread-count > label").html(unreadCount);
 
-        if (unreadCount == 0)
+        if (unreadCount == 0) // Hide unread count if it is 0
             $(".mailbox-user-unread-count").addClass("hidden");
-        else
+        else // Show unread count if it isn't 0
             $(".mailbox-user-unread-count").removeClass("hidden");
 
         @if (ViewData["ModerationUnreadCount"] != null)
@@ -154,10 +156,10 @@
                 </div>
             </div>
             <div class="form-group">
-                <label asp-for="@(Model as PrivateMessageViewModel).Contents" class="col-md-2 control-label"></label>
+                <label asp-for="@(Model as PrivateMessageViewModel).MessageContents" class="col-md-2 control-label"></label>
                 <div class="col-md-10">
-                    <textarea asp-for="@(Model as PrivateMessageViewModel).Contents" id="Contents" maxlength="4000"></textarea>
-                    <span asp-validation-for="@(Model as PrivateMessageViewModel).Contents" class="text-danger"></span>
+                    <textarea asp-for="@(Model as PrivateMessageViewModel).MessageContents" id="MessageContents" maxlength="4000"></textarea>
+                    <span asp-validation-for="@(Model as PrivateMessageViewModel).MessageContents" class="text-danger"></span>
                 </div>
             </div>
             <div class="form-group">

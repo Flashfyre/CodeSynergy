@@ -39,6 +39,11 @@ namespace CodeSynergy.Controllers
         public async Task<IActionResult> Index(int MailboxTypeID, int? MailboxItemID, int PrivateMessageID = 0, string Recipient = null, string returnUrl = null)
         {
             ApplicationUser user = await _users.FindByEmailAsync(Request.HttpContext.User.Identity.Name);
+
+            // If the user is not logged in, redirect them to the homepage with a login modal
+            if (user == null)
+                return Redirect("/Account/Login");
+
             IEnumerable<Mailbox> mailboxes = _mailboxes.GetAllForUser(user);
             PrivateMessage privateMessage = null;
             bool isModerator = user.Role == "Moderator" || user.Role == "Administrator";
@@ -70,7 +75,7 @@ namespace CodeSynergy.Controllers
                     {
                         DisplayName = Recipient,
                         Summary = "",
-                        Contents = "<p>&nbsp;</p>"
+                        MessageContents = "<p>&nbsp;</p>"
                     };
                 }
             }
@@ -86,7 +91,7 @@ namespace CodeSynergy.Controllers
                             Item = mailboxItem,
                             DisplayName = mailboxItem.Message.SenderUser.DisplayName,
                             Summary = "Re: " + mailboxItem.Message.Summary.Substring(0, Math.Min(mailboxItem.Message.Summary.Length, 60)),
-                            Contents = "<p><em>Quote from Admin on " + mailboxItem.Message.SentDate + ":</em><blockquote>" + mailboxItem.Message.Contents + "</blockquote><p>&nbsp;</p>"
+                            MessageContents = "<p><em>Quote from Admin on " + mailboxItem.Message.SentDate + ":</em><blockquote>" + mailboxItem.Message.Contents + "</blockquote><p>&nbsp;</p>"
                         };
                     else { // If the item is a moderation mailbox item
                         if (user.Role == "Moderator") // If the user is a moderator, set assignable users to self
@@ -101,7 +106,7 @@ namespace CodeSynergy.Controllers
                         {
                             Item = mailboxItem,
                             AssigneeDisplayName = (mailboxItem as ModerationMailboxItem).AssignedDate != null ? (mailboxItem as ModerationMailboxItem).AssigneeUser.DisplayName : user.DisplayName,
-                            Contents = (mailboxItem as ModerationMailboxItem).ResolvedDate != null ? (mailboxItem as ModerationMailboxItem).ActionTaken : ""
+                            MessageContents = (mailboxItem as ModerationMailboxItem).ResolvedDate != null ? (mailboxItem as ModerationMailboxItem).ActionTaken : ""
                         };
                     }
                     ViewData["ActiveItem"] = MailboxItemID;
@@ -139,7 +144,7 @@ namespace CodeSynergy.Controllers
                     SenderUserID = user.Id,
                     RecipientUserID = recipient.Id,
                     Summary = (PrivateMessageViewModel as PrivateMessageViewModel).Summary.Trim(),
-                    Contents = (PrivateMessageViewModel as PrivateMessageViewModel).Contents
+                    Contents = (PrivateMessageViewModel as PrivateMessageViewModel).MessageContents
                 };
                 newMessage.Send(_privateMessages, _mailboxes);
             } else // Add the failed message to the user's cookies to restore it and show error message(s)
@@ -216,17 +221,18 @@ namespace CodeSynergy.Controllers
                         ViewBag.AssignableUsers = _users.GetAll().Where(u => (u.Role == "Moderator" || u.Role == "Administrator")).OrderBy(u => u.DisplayName).OrderBy(u => u.Role);
                 }
 
+                // Create view model for message reply or report action
                 MessageViewModel messageViewModel = MailboxTypeID != (byte) EnumMailboxType.Moderation ? (MessageViewModel) new PrivateMessageViewModel()
                 {
                     Item = mailboxItem,
                     DisplayName = message.SenderName,
                     Summary = "Re: " + message.Summary.Substring(0, Math.Min(message.Summary.Length, 60)),
-                    Contents = "<p><em>Quote from " + message.SenderName + " on " + message.SentDate + ":</em><blockquote>" + message.Contents + "</blockquote><p>&nbsp;</p>"
+                    MessageContents = "<p><em>Quote from " + message.SenderName + " on " + message.SentDate + ":</em><blockquote>" + message.Contents + "</blockquote><p>&nbsp;</p>"
                 } : new ReportActionViewModel()
                 {
                     Item = mailboxItem,
                     AssigneeDisplayName = (mailboxItem as ModerationMailboxItem).AssignedDate != null ? (mailboxItem as ModerationMailboxItem).AssigneeUser.DisplayName : user.DisplayName,
-                    Contents = (mailboxItem as ModerationMailboxItem).ResolvedDate != null ? (mailboxItem as ModerationMailboxItem).ActionTaken : ""
+                    MessageContents = (mailboxItem as ModerationMailboxItem).ResolvedDate != null ? (mailboxItem as ModerationMailboxItem).ActionTaken : ""
                 };
 
                 return View((MailboxTypeID != (byte) EnumMailboxType.Moderation ? "User" : "Moderation") + "MailboxItem", messageViewModel);
@@ -234,6 +240,8 @@ namespace CodeSynergy.Controllers
             return Redirect("Home/Error");
         }
 
+        // Star item POST request sent
+        // POST: /Mailbox/StarItem
         [HttpPost]
         public async Task<JsonResult> StarItem(byte MailboxTypeID, int MailboxItemID, bool IsUndo)
         {
@@ -243,6 +251,7 @@ namespace CodeSynergy.Controllers
             UserMailboxItem item = _mailboxes.Find(user.Id, MailboxTypeID).UserItems.SingleOrDefault(i => i.MailboxItemID == MailboxItemID);
             int starredItemID = 0;
             
+            // If starring an unstarred item or unstarring a starred item, execute the operation
             if ((!IsUndo && item.StarredDate == null) || (IsUndo && item.StarredDate != null))
             {
                 user.LastActivityDate = DateTime.Now;
@@ -252,13 +261,15 @@ namespace CodeSynergy.Controllers
                     starredItemID = item.Star(_mailboxes);
                 else
                     item.Unstar(_mailboxes);
-            } else
+            } else // Operation is invalid: set error message
                 errorMessage = "You may not " + (IsUndo ? "un" : "") + "star a" + (IsUndo ? "n un" : " ") + "starred item!";
 
             return Json(new object[] { success, success ? _mailboxes.Find(user.Id, 0).UserItems.Where(i => (i as UserMailboxItem).MarkedAsSpamDate == null && i.DeletedDate == null && !i.ReadFlag).Count().ToString() : errorMessage,
                 success && isModerator ? Math.Min(_moderationMailbox.Items.Where(i => i.DeletedDate == null && !i.ReadFlag).Count(), 99).ToString() : null, starredItemID });
         }
 
+        // Mark items as read POST request sent
+        // POST: /Mailbox/MarkItemsAsRead
         [HttpPost]
         public async Task<JsonResult> MarkItemsAsRead(byte MailboxTypeID, string MailboxItemIDs, bool IsUndo)
         {
@@ -274,6 +285,7 @@ namespace CodeSynergy.Controllers
                 user.LastActivityDate = DateTime.Now;
                 success = true;
 
+                // Go through each item and, if the user has permission, mark as read or unread
                 foreach (int itemID in itemIDs)
                 {
                     MailboxItem item = mailbox.Items.SingleOrDefault(i => i.MailboxItemID == itemID);
@@ -285,13 +297,15 @@ namespace CodeSynergy.Controllers
                             (item as ModerationMailboxItem).MarkAsRead(_moderationMailbox, IsUndo);
                     }
                 }
-            } else
+            } else // Operation is invalid: set error message
                 errorMessage = "You do not have the rights to mark moderation mailbox items as " + (IsUndo ? "un" : "") + "read!";
 
             return Json(new object[] { success, success ? _mailboxes.Find(user.Id, 0).UserItems.Where(i => (i as UserMailboxItem).MarkedAsSpamDate == null && i.DeletedDate == null && !i.ReadFlag).Count().ToString() : errorMessage,
                 success && isModerator ? Math.Min(_moderationMailbox.Items.Where(i => i.DeletedDate == null && !i.ReadFlag).Count(), 99).ToString() : null });
         }
 
+        // Mark items as spam POST request sent
+        // POST: /Mailbox/MarkItemsAsSpam
         [HttpPost]
         public async Task<JsonResult> MarkItemsAsSpam(byte MailboxTypeID, string MailboxItemIDs, bool IsUndo)
         {
@@ -308,6 +322,7 @@ namespace CodeSynergy.Controllers
                 user.LastActivityDate = DateTime.Now;
                 success = true;
 
+                // Go through each item and, if the user has permission, mark as spam or not spam
                 foreach (int itemID in itemIDs)
                 {
                     UserMailboxItem item = mailbox.UserItems.SingleOrDefault(i => i.MailboxItemID == itemID);
@@ -322,13 +337,15 @@ namespace CodeSynergy.Controllers
                     spamItemIDs.Add(spamItemID);
                 }
             }
-            else
+            else // Operation is invalid: set error message
                 errorMessage = "You may only " + (IsUndo ? "remove spam inbox items from spam!" : "mark inbox items as spam!");
 
             return Json(new object[] { success, success ? _mailboxes.Find(user.Id, 0).UserItems.Where(i => (i as UserMailboxItem).MarkedAsSpamDate == null && i.DeletedDate == null && !i.ReadFlag).Count().ToString() : errorMessage,
                 success && isModerator ? Math.Min(_moderationMailbox.Items.Where(i => i.DeletedDate == null && !i.ReadFlag).Count(), 99).ToString() : null, IsUndo ? null : spamItemIDs.ToArray() });
         }
 
+        // Delete items POST request sent
+        // POST: /Mailbox/DeleteItems
         [HttpPost]
         public async Task<JsonResult> DeleteItems(byte MailboxTypeID, string MailboxItemIDs, bool isUndo)
         {
@@ -348,6 +365,7 @@ namespace CodeSynergy.Controllers
                     user.LastActivityDate = DateTime.Now;
                     success = true;
 
+                    // Go through each item and, if the user has permission, mark as deleted or not deleted
                     foreach (int itemID in itemIDs)
                     {
                         MailboxItem item = mailbox.Items.SingleOrDefault(i => i.MailboxItemID == itemID);
@@ -366,16 +384,18 @@ namespace CodeSynergy.Controllers
                         }
                         deletedItemIDs.Add(deletedItemID);
                     }
-                } else
+                } else // Operation is invalid: set error message
                     errorMessage = "You may only " + (isUndo ? "undelete deleted" : "delete inbox, sent, or spam") + " items!";
             }
-            else
+            else // User does not have permission: set error message
                 errorMessage = "You do not have the rights to delete moderation mailbox items!";
 
             return Json(new object[] { success, success ? _mailboxes.Find(user.Id, 0).UserItems.Where(i => (i as UserMailboxItem).MarkedAsSpamDate == null && i.DeletedDate == null && !i.ReadFlag).Count().ToString() : errorMessage,
                 success && isModerator ? Math.Min(_moderationMailbox.Items.Where(i => i.DeletedDate == null && !i.ReadFlag).Count(), 99).ToString() : null, isUndo ? null : deletedItemIDs.ToArray() });
         }
 
+        // Search items POST request sent
+        // POST: /Mailbox/SearchItems
         [HttpPost]
         public async Task<JsonResult> SearchItems(byte MailboxTypeID, string SearchTerm)
         {
@@ -385,7 +405,7 @@ namespace CodeSynergy.Controllers
             Mailbox mailbox = (isUserMailbox = MailboxTypeID != (byte) EnumMailboxType.Moderation) ? (Mailbox)_mailboxes.Find(user.Id, MailboxTypeID) : _moderationMailbox;
             int[] mailboxItemIDs = null;
 
-            // Allow marking if the items being marked are from a user tab or if the items are moderation items and the user is an administrator
+            // User has permission for mailbox: get search results
             if (isUserMailbox || user.Role == "Administrator")
             {
                 success = true;
@@ -393,36 +413,44 @@ namespace CodeSynergy.Controllers
                 IEnumerable<SearchResult<MailboxItem>> searchResults = SearchResult<MailboxItem>.GetSearchResults(mailbox.Items, SearchTerm);
                 mailboxItemIDs = searchResults.Select(r => r.Object.MailboxItemID).ToArray();
             }
-            else
+            else // User does not have permission: set error message
                 errorMessage = "You do not have the rights to search moderation mailbox items!";
 
             return Json(new object[] { success, success ? null : errorMessage, mailboxItemIDs.ToArray() });
         }
 
+        // Private message loaded in mailbox modal
+        // GET: /Mailbox/PrivateMessage
         [HttpGet]
         public async Task<IActionResult> PrivateMessage(long PrivateMessageID)
         {
             ApplicationUser user = await _users.FindByEmailAsync(Request.HttpContext.User.Identity.Name);
             PrivateMessage privateMessage = _privateMessages.Find(PrivateMessageID);
+            // User has permission to view message: return private message view displaying the message
             if (user != null && privateMessage != null && (user.Role == "Moderator" || user.Role == "Administrator"))
             {
                 return View(privateMessage);
             }
-            return Redirect("Home/Error");
+            return Redirect("Home/Error"); // User does not have permission: display error view in mailbox modal
         }
 
+        // Moderation mailbox item loaded in mailbox modal
+        // GET: /Mailbox/ModerationMailboxItem
         [HttpGet]
         public async Task<IActionResult> ModerationMailboxItem(int MailboxItemID)
         {
             ApplicationUser user = await _users.FindByEmailAsync(Request.HttpContext.User.Identity.Name);
             ModerationMailboxItem mailboxItem = _moderationMailbox.GetAll().SingleOrDefault(i => i.MailboxItemID == MailboxItemID);
+            // User has permission to view moderation mailbox item: return moderation mailbox item view displaying the message
             if (user != null && mailboxItem != null && (user.Role == "Moderator" || user.Role == "Administrator"))
             {
                 return View(mailboxItem);
             }
-            return Redirect("Home/Error");
+            return Redirect("Home/Error"); // User does not have permission: display error view in mailbox modal
         }
 
+        // AssignItemToUser POST request sent
+        // POST: /Mailbox/AssignItemToUser
         [HttpPost]
         public async Task<JsonResult> AssignItemToUser(int MailboxItemID, string DisplayName, bool IsUndo)
         {
@@ -432,31 +460,35 @@ namespace CodeSynergy.Controllers
             string errorMessage = "";
             ModerationMailboxItem item = (ModerationMailboxItem) _moderationMailbox.Items.SingleOrDefault(i => i.MailboxItemID == MailboxItemID);
 
+            // Ensure user has permission
             if (isModerator && (user.Id == assignee.Id || user.Role == "Administrator"))
             {
+                // Ensure requested state change has not already occurred
                 if ((!IsUndo && item.AssignedDate == null) || (IsUndo && item.AssignedDate != null))
                 {
                     bool isUnresolved = true;
+                    // If unassigning, ensure either that the item is unresolved or the user is an administrator
                     if (!IsUndo || (isUnresolved = item.ResolvedDate == null) || user.Role == "Administrator")
                     {
                         user.LastActivityDate = DateTime.Now;
                         success = true;
 
+                        // Assign the item to the user if assigning
                         if (!IsUndo)
                             item.AssignToUser(_moderationMailbox, assignee, user);
-                        else
+                        else // Unassign the item if unassigning and mark unresolved if it was resolved
                         {
                             if (!isUnresolved)
                                 item.MarkAsUnresolved(_moderationMailbox);
                             item.Unassign(_moderationMailbox);
                         }
                     }
-                    else
+                    else // User does not have permission: set error message
                         errorMessage = "You do not have the rights to unassign a resolved item!";
                 }
-                else
+                else // State change has already occurred: set error message
                     errorMessage = "You may not " + (IsUndo ? "un" : "") + "assign an " + (IsUndo ? "un" : "") + "assigned item!";
-            } else
+            } else // User does not have permission: set error message
                 errorMessage = "You do not have the rights to " + (IsUndo ? "un" : "") + "assign '" + DisplayName + "' " + (IsUndo ? "from" : "to") + " this item!";
 
             return Json(new object[] { success, success ? _mailboxes.Find(user.Id, 0).UserItems.Where(i => (i as UserMailboxItem).MarkedAsSpamDate == null && i.DeletedDate == null && !i.ReadFlag).Count().ToString() :
@@ -465,6 +497,8 @@ namespace CodeSynergy.Controllers
                 DisplayName : null, item.AssignedDate != null ? ((DateTime) item.AssignedDate).ToLocalTime().ToString() : null });
         }
 
+        // Resolve item POST request sent
+        // POST: /Mailbox/ResolveItem
         [HttpPost]
         public async Task<JsonResult> ResolveItem(int MailboxItemID, string ActionTaken, bool IsUndo)
         {
@@ -473,32 +507,35 @@ namespace CodeSynergy.Controllers
             string errorMessage = "";
             ModerationMailboxItem item = (ModerationMailboxItem)_moderationMailbox.Items.SingleOrDefault(i => i.MailboxItemID == MailboxItemID);
 
+            // Ensure item is assigned
             if (item.AssigneeUserID != null)
             {
+                // Ensure user has the rights to resolve or unresolve the item
                 if (user.Id == item.AssigneeUserID || (IsUndo && user.Role == "Administrator"))
                 {
+                    // Ensure state change has not already occurred
                     if ((!IsUndo && item.ResolvedDate == null) || (IsUndo && item.ResolvedDate != null))
                     {
-                        if (IsUndo || ActionTaken != null)
+                        if (IsUndo || ActionTaken != null) // Ensure action taken is not empty
                         {
                             user.LastActivityDate = DateTime.Now;
                             success = true;
-
-                            if (!IsUndo)
+                            
+                            if (!IsUndo) // Resolve the item if resolving
                                 item.MarkAsResolved(_moderationMailbox, ActionTaken);
-                            else
+                            else // Mark item as unresolved if marking as unresolved
                                 item.MarkAsUnresolved(_moderationMailbox);
                         }
-                        else
+                        else // Action taken is empty: display error message
                             errorMessage = "You must enter the action you took towards the report in order to resolve it!";
                     }
-                    else
+                    else // State change has already occurred: set error message
                         errorMessage = "You may not mark a" + (IsUndo ? "n un" : " ") + "resolved item as " + (IsUndo ? "un" : "") + "resolved!";
                 }
-                else
+                else // User does not have permission: set error message
                     errorMessage = "You must be assigned to this item to mark it as " + (IsUndo ? "un" : "") + "resolved!";
             }
-            else
+            else // Item is unassigned: set error message
                 errorMessage = "You may not mark an unassigned item as " + (IsUndo ? "un" : "") + "resolved!";
 
             return Json(new object[] { success, success ? _mailboxes.Find(user.Id, 0).UserItems.Where(i => (i as UserMailboxItem).MarkedAsSpamDate == null && i.DeletedDate == null && !i.ReadFlag).Count().ToString() :
@@ -507,6 +544,8 @@ namespace CodeSynergy.Controllers
                 item.ResolvedDate != null ? ((DateTime) item.ResolvedDate).ToLocalTime().ToString() : null });
         }
 
+        // Report item modal loaded
+        // GET: /Mailbox/ReportItem
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> ReportItem(byte ReportTypeID, string ReportedItemID, string returnUrl = null)
@@ -517,6 +556,7 @@ namespace CodeSynergy.Controllers
 
             ViewData["ReturnUrl"] = returnUrl;
 
+            // Set the reported item according to the valid object type for the report type
             switch ((EnumReportType) ReportTypeID)
             {
                 case EnumReportType.Question:
@@ -539,7 +579,7 @@ namespace CodeSynergy.Controllers
                     break;
             }
 
-            if (reportedItem != null)
+            if (reportedItem != null) // Reported item is valid: load the report modal for the item
             {
                 return View(new ReportViewModel()
                 {
@@ -555,16 +595,19 @@ namespace CodeSynergy.Controllers
             return Redirect("Home/Error");
         }
 
+        // Report item POST request sent
+        // POST: /Mailbox/ReportItem
         [HttpPost]
         [AllowAnonymous]
         public async Task<IActionResult> ReportItem(ReportViewModel ReportViewModel, string returnUrl = null)
         {
             ApplicationUser user = await _users.FindByEmailAsync(Request.HttpContext.User.Identity.Name);
             IReportable reportedItem;
-            string[] keys = ReportViewModel.ReportedItemID.Split('-');
+            string[] keys = ReportViewModel.ReportedItemID.Split('-'); // Object's primary key(s) as a string array
 
-            if (ModelState.IsValid)
+            if (ModelState.IsValid) // Ensure report was valid
             {
+                // Create a new report object
                 Report report = new Report()
                 {
                     ReportTypeID = ReportViewModel.ReportTypeID,
@@ -572,6 +615,7 @@ namespace CodeSynergy.Controllers
                     SenderUserID = user != null ? user.Id : null
                 };
 
+                // Set the reported item to the appropriate object according to the report type and primary key(s) for the object
                 switch ((EnumReportType) ReportViewModel.ReportTypeID)
                 {
                     case EnumReportType.Question:
@@ -608,13 +652,14 @@ namespace CodeSynergy.Controllers
                         break;
                 }
 
-                if (reportedItem != null)
+                if (reportedItem != null) // Reported item is valid: send the report
                     report.Send(_reports, _moderationMailbox);
             }
 
+            // Send the user back to the page they were on if the URL is valid
             if (Url.IsLocalUrl(returnUrl))
                 return Redirect(returnUrl);
-            else
+            else // URL is invalid: redirect to home page
                 return Redirect("/");
         }
     }

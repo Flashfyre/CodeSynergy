@@ -185,9 +185,9 @@ namespace CodeSynergy.Controllers
                 if (result.Succeeded) // If the user was created successfully
                 {
                     if (user.Email == "admin@codesynergy.com") // Make the user an administrator if their email is admin@codesynergy.com (email uniqueness is checked so this is safe)
-                    {
                         await _userManager.AddToRoleAsync(user, "Administrator");
-                    }
+                    else // Add the member role if the user email does not match the admin email
+                        await _userManager.AddToRoleAsync(user, "Member");
                     await _signInManager.SignInAsync(user, isPersistent: false); // Sign the user in
                     _logger.LogInformation(3, "User created a new account with password.");
                     return RedirectToAction(nameof(HomeController.Index), "Home"); // Redirect to the home page
@@ -321,7 +321,6 @@ namespace CodeSynergy.Controllers
                 ApplicationUser user = null;
                 IdentityResult result = null;
                 
-                // Get the user from the email provided in the form
                 user = await GetCurrentUserAsync();
                 // Update the user with new data provided in the form
                 user.DisplayName = model.DisplayName.Replace(' ', '_');
@@ -357,7 +356,7 @@ namespace CodeSynergy.Controllers
             }
 
             // If we got this far, something failed, load the home page with the settings modal
-            return RedirectToAction("Index", "Home", new { modal = "Account/Settings" });
+            return Redirect("/?modal=Account/Settings");
         }
 
         // Return a JSON array for the result of whether an email is taken by another user

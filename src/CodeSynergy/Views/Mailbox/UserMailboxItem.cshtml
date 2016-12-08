@@ -12,18 +12,20 @@
     var githubRepoData = null;
 
     function clearAutosaveData() {
-        localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-Contents-draft");
-        localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-Contents-time");
+        localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-MessageContents-draft");
+        localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-MessageContents-time");
     }
 
     function init() {
+        // Set close modal click event (remove the tinyMCE editor so it loads properly if loaded again)
         $("#modal .close-modal > i").click(function () {
             $(".mailbox-item-row.open").removeClass("open");
             $("#modal .mce-tinymce").remove();
         });
 
+        // Set cancel button click event
         $("#btn-cancel").click(function () {
-            $('textarea[name=Contents]:last').each(function () { clearAutosaveData(); $(this).clone().show().insertAfter($(this)); $(this).prev().remove(); $(this).remove(); });
+            $('textarea[name=MessageContents]:last').each(function () { clearAutosaveData(); $(this).clone().show().insertAfter($(this)); $(this).prev().remove(); $(this).remove(); });
             initModalEditors();
             $(this).parent().parent().parent().parent().addClass("hidden");
             $("#btn-reply").show().next().hide();
@@ -31,8 +33,10 @@
             return false;
         });
 
+        // Trigger a click of the cancel button to load the tinyMCE text editor correctly
         $("#btn-cancel").trigger("click");
 
+        // Set the reply button click event
         $("#btn-reply").click(function () {
             if ($(this).parent().next().hasClass("hidden"))
                 $(this).hide().next().show().parent().next().removeClass("hidden");
@@ -40,6 +44,7 @@
                 $(this).show().next().hide().parent().next().addClass("hidden");
         });
 
+        // Set the star button click event
         $(".btn-star").click(function() {
             var $btn = $(this);
             var mailboxType = $btn.attr("data-mailbox-type-id");

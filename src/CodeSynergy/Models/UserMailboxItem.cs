@@ -133,6 +133,11 @@ namespace CodeSynergy.Models
                 UserMailbox sent = mailboxes.Find(UserID, (byte) EnumMailboxType.Sent);
                 UserMailbox spam = mailboxes.Find(UserID, (byte) EnumMailboxType.Spam);
 
+                if (StarredDate != null)
+                    Unstar(mailboxes);
+
+                MarkedAsSpamDate = DateTime.Now;
+
                 UserMailboxItem spamItem = new UserMailboxItem()
                 {
                     MailboxItemID = (spam.Items.Any() ? spam.Items.Max(i => i.MailboxItemID) : 0) + 1,
@@ -144,8 +149,6 @@ namespace CodeSynergy.Models
                 };
 
                 spam.UserItems.Add(spamItem);
-
-                MarkedAsSpamDate = DateTime.Now;
 
                 if (PrivateMessage.SenderUserID == UserID)
                 {
@@ -200,6 +203,9 @@ namespace CodeSynergy.Models
 
                 DateTime deletedDate = DateTime.Now;
 
+                if (StarredDate != null)
+                    Unstar(mailboxes);
+
                 UserMailboxItem deletedItem = new UserMailboxItem()
                 {
                     MailboxItemID = (deleted.Items.Any() ? deleted.Items.Max(i => i.MailboxItemID) : 0) + 1,
@@ -215,21 +221,18 @@ namespace CodeSynergy.Models
                 if (inboxItem != null)
                 {
                     inboxItem.DeletedDate = deletedDate;
-                    inboxItem.StarredDate = null;
                     inboxItem.MarkedAsSpamDate = null;
                     mailboxes.Update(inbox);
                 }
                 if (sentItem != null)
                 {
                     sentItem.DeletedDate = deletedDate;
-                    sentItem.StarredDate = null;
                     sentItem.MarkedAsSpamDate = null;
                     mailboxes.Update(sent);
                 }
                 if (spamItem != null)
                 {
-                    spamItem.DeletedDate = deletedDate;
-                    spamItem.MarkedAsSpamDate = null;
+                    spam.UserItems.Remove(this);
                     mailboxes.Update(spam);
                 }
 

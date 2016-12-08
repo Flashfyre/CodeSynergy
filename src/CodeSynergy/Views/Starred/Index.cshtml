@@ -43,6 +43,7 @@
 
 <script type="text/javascript">
     $(document).ready(function () {
+        // Create/load cookie for grid sort options
         var gridName = "starredQuestionGrid";
         var gridData = localStorage.getItem("gridData") != null ? JSON.parse(localStorage.getItem("gridData")) : null;
         if (gridData == null) {
@@ -54,6 +55,7 @@
             localStorage.setItem("gridData", JSON.stringify(gridData));
         }
 
+        // Initialize the starred questions grid
         $("#main .mvc-grid").mvcgrid({
             filters: {
                 'TagFilter': new TagFilter()

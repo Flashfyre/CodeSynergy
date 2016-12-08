@@ -33,21 +33,6 @@ for (var d = 1; d <= githubRepoData.length; d++) {
     zNodes[d - 1] = { name: githubRepoData[d - 1].name, id: d.toString(), level: 0, count: 1, times: 1, isParent: true };
 }
 
-/*var zNodes = [
-    { id: 1, pId: 0, name: "ordinary parent", t: "I am ordinary, just click on me", open: true },
-    { id: 11, pId: 1, name: "leaf node 1-1", t: "I am ordinary, just click on me" },
-    { id: 12, pId: 1, name: "leaf node 1-2", t: "I am ordinary, just click on me" },
-    { id: 13, pId: 1, name: "leaf node 1-3", t: "I am ordinary, just click on me" },
-    { id: 2, pId: 0, name: "strong parent", t: "You can click on me, but you can not click on the sub-node!", open: true },
-    { id: 21, pId: 2, name: "leaf node 2-1", t: "You can't click on me..", click: false },
-    { id: 22, pId: 2, name: "leaf node 2-2", t: "You can't click on me..", click: false },
-    { id: 23, pId: 2, name: "leaf node 2-3", t: "You can't click on me..", click: false },
-    { id: 3, pId: 0, name: "weak parent", t: "You can't click on me, but you can click on the sub-node!", open: true, click: false },
-    { id: 31, pId: 3, name: "leaf node 3-1", t: "please click on me.." },
-    { id: 32, pId: 3, name: "leaf node 3-2", t: "please click on me.." },
-    { id: 33, pId: 3, name: "leaf node 3-3", t: "please click on me.." }
-];*/
-
 var log, className = "dark",
 startTime = 0, endTime = 0, perCount = 100, perTime = 100;
 

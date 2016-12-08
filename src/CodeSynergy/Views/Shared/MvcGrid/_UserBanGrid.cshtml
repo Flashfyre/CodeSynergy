@@ -12,8 +12,8 @@
 {
     columns.Add(model => model.BanID).Titled("Hidden ID").Css("hidden");
     columns.Add(model => model.BannedUser.Role).Titled("Banned User Role").Named("BannedUserRole").Css("hidden");
-    columns.Add(model => model.BannedUser.DisplayName).Titled("Banned User");
-    columns.Add(model => model.BanningUser.DisplayName).Titled("Banned By");
+    columns.Add(model => model.BannedUser.DisplayName).Titled("Banned User").Encoded(false).RenderedAs(model => model.BannedUser.FullFormattedDisplayName);
+    columns.Add(model => model.BanningUser.DisplayName).Titled("Banned By").Encoded(false).RenderedAs(model => model.BanningUser.FullFormattedDisplayName);
     columns.Add(model => model.BanReason).Titled("Ban Reason");
     columns.Add(model => ((EnumBanTerm) model.BanTerm).DisplayName()).Named("BanTerm").Titled("Ban Term");
     columns.Add(model => model.BanDate).Titled("Date Banned");

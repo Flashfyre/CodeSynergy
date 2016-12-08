@@ -10,10 +10,10 @@
 
 @(Html.Grid(Model).Named(gridName).Build(columns =>
 {
-    columns.Add(model => model.PatternID).Titled("Hidden ID").Css("hidden");
+    columns.Add(model => model.PatternID).Titled("Pattern ID");
     columns.Add(model => model.AddedByUser.Role).Titled("Added By User Role").Named("AddedByUserRole").Css("hidden");
-    columns.Add(model => model.AddedByUser.DisplayName).Titled("Added By");
-    columns.Add(model => model.LastUpdatedByUser.DisplayName).RenderedAs(model => model.LastUpdatedByUser != null ? model.LastUpdatedByUser.DisplayName : "N/A").Titled("Last Updated By");
+    columns.Add(model => model.AddedByUser.DisplayName).Titled("Added By").Encoded(false).RenderedAs(model => model.AddedByUser.FullFormattedDisplayName);
+    columns.Add(model => model.LastUpdatedByUser.DisplayName).Encoded(false).RenderedAs(model => model.LastUpdatedByUser != null ? model.LastUpdatedByUser.FullFormattedDisplayName : "N/A").Titled("Last Updated By");
     columns.Add(model => model.PatternText).Titled("Pattern");
 
     if (sortIndex != -1 && sortIndex < columns.Count())

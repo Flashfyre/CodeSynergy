@@ -28,54 +28,60 @@
 <script type="text/javascript">
     $(document).ready(function () {
         initTagInput();
-        @if (Model.Tags.Any())
+        @if (Model.Tags.Any()) // Initialize the tag input contents if there the model is populated with tags
         {
             string tagString = "";
             foreach (Tag t in Model.Tags)
             {
                 tagString += t.TagName + " ";
             }
-            @Html.Raw("$(\"#tagInput\").val(\"" + tagString + "\").trigger(jQuery.Event(\"keypress\", { keyCode: 0 }));");
+            @Html.Raw("$(\"#tagInput\").val(\"" + tagString + "\").trigger(jQuery.Event(\"keypress\", { charCode: 0 }));");
         }
     });
 
+    // Initialize the tag input
     function initTagInput() {
-        $("#tagInput").keypress(function (e) {
-            if (e.keyCode === 0 || e.keyCode === 32) {
+        $("#tagInput").keypress(function (e) { // Key pressed in tag input
+            if (e.charCode === 0 || e.charCode === 32) { // If the key was space
                 e.preventDefault();
-                var tagNameStr = $(this).val().trim().replace(/[\[\]]+/g, "");
-                if (tagNameStr.length != 0) {
-                    var tagNames = tagNameStr.split(" ");
-                    for (var t in tagNames) {
+                var tagNameStr = $(this).val().trim().replace(/[\[\]]+/g, ""); // Get the text that was typed
+                if (tagNameStr.length != 0) { // If there is text
+                    var tagNames = tagNameStr.split(" "); // Get a string array for all words (tags)
+                    for (var t in tagNames) { // Go through each tag name
                         var tagName = tagNames[t];
+                        // If no tag is currently in the tag input for this tag name
                         if ($("#tagInputContainer > .tag[data-tag-name='" + tagName.toLowerCase() + "']").length == 0) {
+                            // Create a new tag element
                             $newTag = $(document.createElement("span")).addClass("tag").addClass("tag-new").attr("data-tag-name", tagName.toLowerCase()).html(tagName.replace(/\_/g, " "));
-                            $newTag.insertBefore($(this));
-                            var newTagRect = $newTag[0].getBoundingClientRect();
-                            var width = newTagRect.width;
-                            $(this).css({
+                            $newTag.insertBefore($(this)); // Add the tag
+                            var newTagRect = $newTag[0].getBoundingClientRect(); // Tag bounds
+                            var width = newTagRect.width; // Tag width
+                            $(this).css({ // Using the tag's bounds, update the tag input margin and padding so that the blue highlight border remains on the edges
                                 "margin-left": (parseFloat(window.getComputedStyle(this).marginLeft) - (width + 10)) + "px",
                                 "padding-left": (parseFloat(window.getComputedStyle(this).paddingLeft) + (width + ($("#tagInputContainer > .tag").length == 1 ? 0 : 10))) + "px"
                             });
 
                             window.setTimeout(function () {
-                                var $tag = $("#tagInputContainer > .tag:not([data-checked=true]):first");
-                                while ($tag[0] == undefined || $tag.children().length > 0) {
-                                    if ($tag[0] != undefined)
+                                var $tag = $("#tagInputContainer > .tag:not([data-checked=true]):first"); // Get the first unvalidated tag (should be the same as the one above)
+                                while ($tag[0] == undefined || $tag.children().length > 0) { // If the tag is invalid
+                                    if ($tag[0] != undefined) // Tag is defined but not valid: assume it should be the tag before it
                                         $tag = $tag.prev();
-                                    else
+                                    else // Tag is undefined: cancel
                                         return;
                                 }
-                                $tag.attr("data-checked", true);
-                                var oldWidth = $tag[0].getBoundingClientRect().width;
-                                $tag.append($(document.createElement("a")).attr("href", "javascript:void(0)").html("&nbsp;x").click(deleteTag));
-                                var newWidth = $tag[0].getBoundingClientRect().width;
-                                $("#tagInput").css({
+                                $tag.attr("data-checked", true); // Tag is about to be validated and the tag should not be picked up again by the selector above
+                                var oldWidth = $tag[0].getBoundingClientRect().width; // Current tag width
+                                // Add delete button to the tag
+                                $tag.append($(document.createElement("a")).attr("href", "javascript:void(0)").html("&nbsp;x").click(function (e) {
+                                    deleteTag($(e.target).parent());
+                                }));
+                                var newWidth = $tag[0].getBoundingClientRect().width; // Get the new width of the tag after adding the delete button
+                                $("#tagInput").css({ // Update the tag input so that the blue highlight border remains on the edges
                                     "margin-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).marginLeft) - (newWidth - oldWidth)) + "px",
                                     "padding-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).paddingLeft) + (newWidth - oldWidth)) + "px"
                                 });
 
-                                $.ajax({
+                                $.ajax({ // Validate that the tag exists in the database
                                     type: "POST",
                                     url: '/Question/GetTagForTagName',
                                     contentType: "application/x-www-form-urlencoded; charset=utf-8",
@@ -85,75 +91,68 @@
                                     },
                                     dataType: "json",
                                     success: function (data) {
-                                        $tag = $("#tagInputContainer > .tag[data-tag-name='" + data[1].toLowerCase() + "']");
-                                        var tagIndex = $tag.index();
-                                        var tagName = $tag.html().replace(/\s/g, "_").slice(0, $tag.html().indexOf("<"));
-                                        if (data[0] > 0) {
-                                            var tagID = data[0];
-                                            var oldWidth = $tag[0].getBoundingClientRect().width;
-                                            $tag.attr("data-tag-id", tagID).html((tagName = data[1]).replace(/\_/g, " ") + $tag.html().slice($tag.html().indexOf("<"))).removeClass("tag-new").children("a").click(deleteTag);
-                                            var newWidth = $tag[0].getBoundingClientRect().width;
-                                            $("#tagInput").css({
-                                                "margin-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).marginLeft) - (newWidth - oldWidth)) + "px",
-                                                "padding-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).paddingLeft) + (newWidth - oldWidth)) + "px"
-                                            });
-                                            $("#tagInputContainer").append('<input name="Tags[' + tagIndex + '].TagID" value="' + tagID + '" type="hidden" />');
+                                        $tag = $("#tagInputContainer > .tag[data-tag-name='" + data[1].toLowerCase() + "']"); // Get the tag for the POST request that was sent
+                                        if ($tag.length > 0) {
+                                            var tagIndex = $tag.index(); // Child index of the tag
+                                            var tagName = $tag.html().replace(/\s/g, "_").slice(0, $tag.html().indexOf("<")); // Sanitized name for the tag
+                                            if (data[0] > 0) { // If a tag with the tag element's name already exists in the database
+                                                var tagID = data[0];
+                                                var oldWidth = $tag[0].getBoundingClientRect().width; // Current width of the tag
+                                                // Set the tag to be an existing tag, set the tag's id data, and set its content to the tag name with correct casing
+                                                $tag.attr("data-tag-id", tagID).html((tagName = data[1]).replace(/\_/g, " ") + $tag.html().slice($tag.html().indexOf("<"))).removeClass("tag-new").children("a").click(function (e) {
+                                                    deleteTag($(e.target).parent());
+                                                });
+                                                var newWidth = $tag[0].getBoundingClientRect().width; // New width of the tag
+                                                $("#tagInput").css({ // Update the tag input's margin and padding so that the blue highlight border remains on the edges
+                                                    "margin-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).marginLeft) - (newWidth - oldWidth)) + "px",
+                                                    "padding-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).paddingLeft) + (newWidth - oldWidth)) + "px"
+                                                });
+                                                // Add a new hidden input for the tag's ID for forms
+                                                $("#tagInputContainer").append('<input name="Tags[' + tagIndex + '].TagID" value="' + tagID + '" type="hidden" />');
+                                            }
+                                            // Add a new hidden input for the tag's name for forms
+                                            $("#tagInputContainer").append('<input name="Tags[' + tagIndex + '].TagName" value="' + tagName + '" type="hidden" />');
                                         }
-
-                                        $("#tagInputContainer").append('<input name="Tags[' + tagIndex + '].TagName" value="' + tagName + '" type="hidden" />');
                                     },
                                     error: function () { alert("Error: Something went wrong while validating the tag."); }
                                 });
                             }, 10 * (t + 1));
-                        } else {
+                        } else { // Tag with the same name already exists in the tag input: get the existing tag and move it to the end
                             $existingTag = $("#tagInputContainer > .tag[data-tag-name='" + tagName.toLowerCase() + "']");
                             $existingTag.detach().insertBefore("#tagInput");
                         }
                     }
                 }
-                $(this).val("");
+                $(this).val(""); // Empty the tag input
             }
-        }).keydown(function (e) {
-            if (e.keyCode == 8 && $(this).val().length == 0 && $("#tagInputContainer > .tag").length != 0) {
-                $deletedTag = $(this).prev();
-                var width = $deletedTag[0].getBoundingClientRect().width;
-                $(this).css({
-                    "margin-left": (parseFloat(window.getComputedStyle(this).marginLeft) + width + 10) + "px",
-                    "padding-left": (parseFloat(window.getComputedStyle(this).paddingLeft) - (width + ($("#tagInputContainer > .tag").length == 1 ? 0 : 10))) + "px"
-                });
-                var tagIndex = $deletedTag.index();
-                $("#tagInputContainer > input[name=\"Tags\[" + tagIndex + "\].TagID\"], #tagInputContainer > input[name=\"Tags\[" + tagIndex + "\].TagName\"]").remove();
-                $("#tagInputContainer > .tag").each(function () {
-                    if ($(this).index() > tagIndex) {
-                        $("#tagInputContainer > input[name=\"Tags\[" + $(this).index() + "\].TagID\"]").attr("name", "Tags[" + ($(this).index() - 1) + "].TagID");
-                        $("#tagInputContainer > input[name=\"Tags\[" + $(this).index() + "\].TagName\"]").attr("name", "Tags[" + ($(this).index() - 1) + "].TagName");
-                    }
-                });
-                $deletedTag.remove();
+        }).keydown(function (e) { // Key pressed in the tag input
+            if (e.keyCode == 8 && $(this).val().length == 0 && $("#tagInputContainer > .tag").length != 0) { // Key is backspace and there is a tag to delete
+                deleteTag($(this).prev());
             }
         });
-        if ($("#tagInput").val() != "")
+        if ($("#tagInput").val() != "") // The tag input has initial contents: trigger a key press to convert those contents to tags
             window.setTimeout(function () {
-                $("#tagInput").trigger(jQuery.Event("keypress", { keyCode: 0 }));
+                $("#tagInput").trigger(jQuery.Event("keypress", { charCode: 0 }));
             }, 10);
     }
 
-    function deleteTag() {
-        $deletedTag = $(this).parent();
-        var width = $deletedTag[0].getBoundingClientRect().width;
-        $("#tagInput").css({
+    // Delete a tag
+    function deleteTag($deletedTag) {
+        var width = $deletedTag[0].getBoundingClientRect().width; // Tag's width
+        $("#tagInput").css({ // Update the tag input's margin and padding so that the blue highlight border remains on the edges
             "margin-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).marginLeft) + width + 10) + "px",
             "padding-left": (parseFloat(window.getComputedStyle($("#tagInput")[0]).paddingLeft) - (width + ($("#tagInputContainer > .tag").length == 1 ? 0 : 10))) + "px"
         });
-        var tagIndex = $deletedTag.index();
+        var tagIndex = $deletedTag.index(); // Update the tag inputs margins for the tag's deletion so that the blue highlight border remains on the edges
         $("#tagInputContainer > input[name=\"Tags\[" + tagIndex + "\].TagID\"], #tagInputContainer > input[name=\"Tags\[" + tagIndex + "\].TagName\"]").remove();
-        $("#tagInputContainer > .tag").each(function () {
+        // Remove hidden tag inputs for the tag
+        $("#tagInputContainer > .tag").each(function () { // For each hidden input for tags with an index greater than the one deleted, subtract one from array the indexes in the values
             if ($(this).index() > tagIndex) {
                 $("#tagInputContainer > input[name=\"Tags\[" + $(this).index() + "\].TagID\"]").attr("name", "Tags[" + ($(this).index() - 1) + "].TagID");
                 $("#tagInputContainer > input[name=\"Tags\[" + $(this).index() + "\].TagName\"]").attr("name", "Tags[" + ($(this).index() - 1) + "].TagName");
             }
         });
-        $deletedTag.remove();
+        $deletedTag.remove(); // Remove the tag element
         @if (Model.IsGridFilter) { @Html.Raw("return false;"); }
     }
 </script>

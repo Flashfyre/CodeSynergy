@@ -13,25 +13,32 @@ namespace CodeSynergy.Controllers
 {
     public class StarredController : Controller
     {
-        private ApplicationDbContext _context;
         private readonly UserRepository _users;
         private readonly StarRepository _stars;
 
         public StarredController(UserStore<ApplicationUser, IdentityRole<string>, ApplicationDbContext, string> users, IJoinTableRepository<Star, string, int> stars) : base()
         {
-            _context = new ApplicationDbContext();
+            ApplicationDbContext _context = new ApplicationDbContext();
             _users = (UserRepository) users;
             _stars = (StarRepository) stars;
         }
 
+        // Loaded starred questions page
+        // GET: /Starred/
         [HttpGet]
         public IActionResult Index(string Modal)
         {
+            // If the user is not logged in, redirect them to the homepage with a login modal
+            if (HttpContext.User.Identity.Name == null)
+                return Redirect("/?modal=Account/Login");
+
             ViewData["Modal"] = Modal;
 
             return View();
         }
 
+        // Starred questions grid loaded
+        // GET: /Starred/StarredQuestionsGrid
         [HttpGet]
         public async Task<IActionResult> StarredQuestionGrid(string ColumnIndex = "-1", string SortAsc = "false", string UseSearchGrid = "false")
         {

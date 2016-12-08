@@ -19,7 +19,7 @@ namespace CodeSynergy.Models.Repositories
 
         public IEnumerable<UntrustedURLPattern> GetAll()
         {
-            return context.UntrustedURLPatterns.Include(p => p.AddedByUser).ThenInclude(u => u.Roles).Include(p => p.LastUpdatedByUser).AsEnumerable();
+            return context.UntrustedURLPatterns.Include(p => p.AddedByUser).ThenInclude(u => u.Roles).Include(p => p.LastUpdatedByUser).ThenInclude(u => u.Roles).AsEnumerable();
         }
 
         public void Add(UntrustedURLPattern item)
@@ -30,7 +30,8 @@ namespace CodeSynergy.Models.Repositories
 
         public UntrustedURLPattern Find(int id)
         {
-            return context.UntrustedURLPatterns.Include(p => p.AddedByUser).ThenInclude(u => u.Roles).Include(p => p.LastUpdatedByUser).SingleOrDefault(t => t.PatternID == id);
+            return context.UntrustedURLPatterns.Include(p => p.AddedByUser).ThenInclude(u => u.Roles).Include(p => p.LastUpdatedByUser).ThenInclude(u => u.Roles)
+                .SingleOrDefault(t => t.PatternID == id);
         }
 
         public bool Remove(UntrustedURLPattern UntrustedURLPatternIn)

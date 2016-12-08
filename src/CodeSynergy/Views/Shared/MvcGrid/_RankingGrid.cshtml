@@ -30,6 +30,4 @@
         columns.ElementAt(sortIndex).InitialSort(sortAsc ? GridSortOrder.Asc : GridSortOrder.Desc);
 })
 .Empty("No rankings found")
-.Filterable()
-.Sortable()
 .Pageable(p => p.RowsPerPage = 10).Pageable(p => p.CurrentPage = page))

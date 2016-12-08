@@ -177,8 +177,10 @@ var MvcGrid = (function () {
             }
         },
         bindGrid: function (grid) {
-            grid.element.find('tbody tr').on('click.mvcgrid', function (e) {
-                if (grid.rowClicked) {
+            // BEGIN modified
+            if (grid.rowClicked) {
+            // END modified
+                grid.element.find('tbody tr').on('click.mvcgrid', function (e) {
                     var cells = $(this).find('td');
                     var data = [];
 
@@ -190,12 +192,12 @@ var MvcGrid = (function () {
                     }
 
                     grid.rowClicked(grid, this, data, e);
-                }
-                // BEGIN modified
-                else if (grid.cellClicked) {
+                });
+            // BEGIN modified
+            } else if (grid.cellClicked) {
+                grid.element.find('tbody tr td').on('click.mvcgrid', function (e) {
                     var cells = $(this).parent().find('td');
                     var data = [];
-
                     for (var ind = 0; ind < grid.columns.length; ind++) {
                         var column = grid.columns[ind];
                         if (cells.length > ind && $(cells[ind]).is(this)) {
@@ -205,9 +207,10 @@ var MvcGrid = (function () {
                     }
 
                     grid.cellClicked(grid, this, data, e);
-                }
-                // END modified
-            });
+
+                });
+            }
+            // END modified
         },
 
         reload: function (grid) {
@@ -264,7 +267,8 @@ var MvcGrid = (function () {
                 $(window).on('click.mvcgrid', function (e) {
                     var target = $(e.target || e.srcElement);
                     if (!target.hasClass('mvc-grid-filter') && target.parents('.mvc-grid-popup').length == 0 &&
-                        !target.is('[class*="ui-datepicker"]') && target.parents('[class*="ui-datepicker"]').length == 0) {
+                        !target.is('[class*="ui-datepicker"]') && target.parents('[class*="ui-datepicker"]').length == 0 &&
+                        !target.is('.tag > a')) {
                         $(window).off('click.mvcgrid');
                         popup.removeClass('open');
                     }

@@ -18,6 +18,6 @@ namespace CodeSynergy.Models.MailboxViewModels
         public string Summary { get; set; }
         [Required, StringLength(4000), ValidateLinks("message body")]
         [Display(Name = "Body")]
-        public string Contents { get; set; }
+        public string MessageContents { get; set; }
     }
 }

@@ -9,12 +9,14 @@
 
 <script type="text/javascript">
     function init() {
+        // Set assign/resolve button click events
         $("#btn-assign:not(.disabled), #btn-resolve:not(.disabled)").click(function() {
             var $btn = $(this);
             var mailboxItemID = $btn.attr("data-mailbox-item-id");
             var isUndo = $btn.hasClass("undo");
             var $row = $(".mailbox-item-row[data-mailbox-type-id=@((byte) EnumMailboxType.Moderation)][data-mailbox-item-id=" + mailboxItemID + "]");
             var action = $btn.is("#btn-assign") ? "assign" : "resolv";
+            // Set data to pass to post request according to the button that was clicked
             var postData = $btn.is("#btn-assign") ?
             {
                 MailboxItemID: mailboxItemID,
@@ -43,63 +45,70 @@
                         if (isUndo) {
                             $row.removeClass("mailbox-item-row-" + action + "ed");
                             $btn.removeClass("undo");
-                            if ($btn.is("#btn-assign")) {
-                                $("#btn-resolve").addClass("disabled").removeClass("undo").html("Mark Resolved");
+                            if ($btn.is("#btn-assign")) { // Button clicked was unassign button
+                                $("#btn-resolve").addClass("disabled").removeClass("undo").html("Mark Resolved"); // Disable mark unresolved button and make it mark resolved button
+                                // Remove elements that would indicate this item is assigned or resolved
                                 $row.removeClass("mailbox-item-row-resolved").find(".mailbox-item-assign, .mailbox-item-resolve").remove();
-                                $(".message-assign-info, .message-resolve-info").parent().addClass("hidden");
+                                $(".message-assign-info, .message-resolve-info").parent().addClass("hidden"); // Hide assignment and resolution info
+                                // Remove text from elements in assignment and resolution info that correspond to variables
                                 $(".message-assign-info > .assign-info > p > .assign-info-assignee, .message-assign-info > .assign-info > p > .assign-info-assigner, "
                                     + ".message-assign-info > .assign-info > p > .assign-info-date, .message-resolve-info > .resolve-info > p > .resolve-info-resolver, "
                                     + ".message-resolve-info > .resolve-info > p > .resolve-info-date, .message-resolve-info > .resolve-info > p > .resolve-info-action").html("");
-                                $("#select-assigned-user").prop("disabled", null);
-                                $btn.html("Assign");
-                            } else {
+                                $("#select-assigned-user").prop("disabled", null); // Enable assign user dropdown
+                                $btn.html("Assign"); // Set button back to an assign button
+                            } else { // Button clicked was mark as unresolved button
+                                // Remove elements that would indicate this item is resolved
                                 $row.addClass("mailbox-item-row-assigned").find(".mailbox-item-summary").append('<span class="mailbox-item-assign">&nbsp;<i class="fa fa-user"></i></span>')
                                     .children(".mailbox-item-resolve").remove();
-                                $("#btn-assign").removeClass("disabled");
-                                $(".message-resolve-info").parent().addClass("hidden");
+                                $("#btn-assign").removeClass("disabled"); // Re-enable the assign button
+                                $(".message-resolve-info").parent().addClass("hidden"); // Hide the resolution info
+                                // Remove text from elements in resolution info that correspond to variables
                                 $(".message-resolve-info > .resolve-info > p > .resolve-info-resolver, .message-resolve-info > .resolve-info > p > .resolve-info-date, "
                                     + ".message-resolve-info > .resolve-info > p > .resolve-info-action").html("");
-                                $btn.html("Mark Resolved");
+                                $btn.html("Mark Resolved"); // Set button back to a mark resolved button
                             }
-                        } else {
-                            $row.addClass("mailbox-item-row-" + action + "ed");
-                            $btn.addClass("undo");
-                            if ($btn.is("#btn-assign")) {
-                                if (isMatchingUser) {
+                        } else { 
+                            $row.addClass("mailbox-item-row-" + action + "ed"); // Change row to indicate it is either assigned or resolved, depending on the action
+                            $btn.addClass("undo"); // Set the button class to indicate it should undo what is being done now
+                            if ($btn.is("#btn-assign")) { // Button clicked was assign button
+                                if (isMatchingUser) { // User is assigned to this item: enable resolve button and disable the assign user dropdown
                                     $("#btn-resolve").removeClass("disabled");
                                     $("#select-assigned-user").prop("disabled", "true");
                                 }
+                                // Add an icon to the mailbox item to indicate it is assigned
                                 $row.find(".mailbox-item-summary").append('<span class="mailbox-item-assign">&nbsp;<i class="fa fa-user"></i></span>');
+                                // Set assignment info variable text and show the assignment info element
                                 $(".message-assign-info > .assign-info > p > .assign-info-assignee").html(data[3]);
                                 $(".message-assign-info > .assign-info > p > .assign-info-assigner").html('@Html.Raw(user.GetFullFormattedDisplayName(null, true, "?Modal=Mailbox/" + Model.Item.MailboxTypeID + "/" + Model.Item.MailboxItemID))');
                                 $(".message-assign-info > .assign-info > p > .assign-info-date").html(data[4]);
-                                console.log(data[4]);
                                 $(".message-assign-info").parent().removeClass("hidden");
-                                $btn.html("Unassign");
-                            } else {
-                                $row.removeClass("mailbox-item-row-assigned");
-                                @if (user.Role != "Administrator") {
+                                $btn.html("Unassign"); // Set the button to an unassign button
+                            } else { // Button clicked was resolve button
+                                $row.removeClass("mailbox-item-row-assigned"); // Remove the assigned class from the item
+                                @if (user.Role != "Administrator") { // If the user isn't an administrator, disable the assign button
                                     @Html.Raw("$(\"#btn-assign\").addClass(\"disabled\");");
                                 }
+                                // Add an icon to the mailbox item to indicate it is resolved, and remove the icon for being assigned
                                 $row.find(".mailbox-item-summary").append('<span class="mailbox-item-resolve">&nbsp;<i class="fa fa-check"></i></span>').children(".mailbox-item-assign").remove();
+                                // Set resolution info variable text and show resolution info element
                                 $(".message-resolve-info > .resolve-info > p > .resolve-info-resolver").html(data[3]);
                                 $(".message-resolve-info > .resolve-info > p > .resolve-info-date").html(data[4]);
                                 $(".message-resolve-info > .resolve-info > p > .resolve-info-action").html($("#action-taken").val());
                                 $(".message-resolve-info").parent().removeClass("hidden");
-                                $btn.html("Mark Unresolved");
+                                $btn.html("Mark Unresolved"); // Set the button to a mark unresolved button
                             }
                         }
 
-                        if ($btn.is("#btn-assign") == isUndo)
+                        if ($btn.is("#btn-assign") == isUndo) // Hide action taken if necessary
                             $("#action-taken").parent().addClass("hidden");
-                        else if (isMatchingUser)
+                        else if (isMatchingUser) // Show action taken if necessary
                             $("#action-taken").parent().removeClass("hidden");
 
                         updateUnreadCounts(data[1], data[2]);
                     } else // If the action failed, output the error message
                         alert(data[1]);
 
-                    if (isMatchingUser)
+                    if (isMatchingUser) // User is assigned to this item: re-enable the clicked button
                         $btn.removeClass("disabled");
                 },
                 error: function () {
@@ -111,6 +120,7 @@
         });
     }
 
+    // Update the unread counts on the mailbox icon
     function updateUnreadCounts(userCount, moderationCount) {
         $(".mailbox-user-unread-count > label").html(userCount); // Update the unread items count
 

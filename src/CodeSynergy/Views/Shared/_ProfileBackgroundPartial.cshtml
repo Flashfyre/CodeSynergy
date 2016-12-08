@@ -1,7 +1,7 @@
 @model ApplicationUser
 
 <style type="text/css">
-    @if (Model != null && Model.UseProfileBackground) {
+    @if (Model != null && Model.UseProfileBackground) { // If the user exists and has the profile background option enabled in their settings, use the profile background on the current page
         @Html.Raw("body { background-image: url('" + Model.BackgroundImageUrl + "');" + (Model.HasCustomBackground ? " background-size: cover;" : "") + " }")
         @if(Model.HasCustomBackground) {
             @Html.Raw(" #main > .body-content { background: rgba(255, 255, 255, 0.95); } hr { border-top-color: #bbb }")

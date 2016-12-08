@@ -31,6 +31,7 @@
     var githubID = @{ @Html.Raw(user != null && user.GitHubID != null ? "\"" + user.GitHubID + "\"" : "null"); };
     var githubRepoData = null;
 
+    // Vote on the user's reputation
     function repVote(vote) {
         $.ajax({
             type: "POST",
@@ -61,12 +62,14 @@
         });
     }
 
+    // Clear tinyMCE autosave data
     function clearAutosaveData() {
         localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-Contents-draft");
         localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-Contents-time");
     }
 
     $(document).ready(function () {
+        // Create/load cookies for grid sort options
         var gridData = localStorage.getItem("gridData") != null ? JSON.parse(localStorage.getItem("gridData")) : null;
         if (gridData == null) {
             gridData = {};
@@ -84,6 +87,7 @@
             }
         }
 
+        // Initialize custom dropdown grid filter for post type
         var PostTypeSelectFilter = (function () {
             function PostTypeSelectFilter() {
             }
@@ -150,6 +154,7 @@
         return PostTypeSelectFilter;
         })();
 
+        // Initialize grids
         $("#main .mvc-grid").mvcgrid({
             filters: {
                 "PostTypeSelectFilter": new PostTypeSelectFilter()
@@ -163,6 +168,7 @@
             }
         });
 
+        // When a cancel button is clicked, according to which cancel button it is, hide the content it's related to and show the content that was there before (if any)
         $(".btn-cancel").click(function () {
             if ($(this).is("#btn-cancel-profile-message-edit")) {
                 // Use some jQuery cloning and removal to reinitialize the TinyMCE editors with their original content
@@ -179,13 +185,13 @@
         $(".btn-upvote-rep:not(.disabled)").click(function () { repVote(true); });
         $(".btn-downvote-rep:not(.disabled)").click(function () { repVote(false); });
 
-        @if (user != null && user.Id == Model.User.Id)
+        @if (user != null && user.Id == Model.User.Id) // User is viewing their own profile: initialize image edit buttons and profile message edit button
         {
             @Html.Raw("$('#btn-edit-profile-image, #btn-edit-background-image').click(function() { $(this).hide().next().removeClass('hidden'); });");
             @Html.Raw("$('#btn-edit-profile-message').click(function() { $(this).prev().hide().next().hide().next().removeClass('hidden'); });");
         }
 
-        @if (!Model.IsImage) {
+        @if (!Model.IsImage) { // Page is loaded from a POST request that updated profile message: if there were errors show the profile message editor with its errors
             @Html.Raw("if ($('#editProfileForm').children('.validation-summary-errors').children().length > 0) { $('#btn-edit-profile-message').trigger('click'); }");
         }
     });
@@ -298,7 +304,7 @@
                     <td>
                         @if (user != null && Model.User.Id == user.Id)
                         {
-                            @Html.Raw(Model.User.ProfileMessage + "&nbsp;")<i id="btn-edit-profile-message" class="fa fa-pencil btn-edit"></i>
+                            <span id="profile-message">@Html.Raw(Model.User.ProfileMessage + "&nbsp;")</span><i id="btn-edit-profile-message" class="fa fa-pencil btn-edit"></i>
                             <form asp-controller="User" asp-action="Index" method="post" id="editProfileForm" class="form-horizontal hidden" role="form">
                                 <div asp-validation-summary="All" class="text-danger"></div>
                                 <input type="hidden" asp-for="@Model.IsImage" value="false" />
@@ -310,7 +316,7 @@
                         }
                         else
                         {
-                            @Html.Raw(Model.User.ProfileMessage)
+                            <span id="profile-message">@Html.Raw(Model.User.ProfileMessage)</span>
                         }
                     </td>
                 </tr>

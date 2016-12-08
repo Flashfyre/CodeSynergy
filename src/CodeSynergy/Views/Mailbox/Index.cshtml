@@ -81,7 +81,7 @@
                     var mailboxType = $search.attr("data-mailbox-type-id");
                     var searchTerm = $search.val().toLocaleLowerCase();
                     var $sort = $(".mailbox-sort[data-mailbox-type-id=" + mailboxType + "]");
-           
+
                     if (searchTerm != "") {
                         $("#mailboxListTable" + mailboxType).addClass("loading");
                         $.ajax({
@@ -240,9 +240,10 @@
                                         $(this).remove(); // Remove the deleted/spam item
                                 });
                                 // Show the placeholder for the table if necessary
-                                if ($table.find("tr.mailbox-item-row:not(.hidden)").length === 0)
+                                if ($table.find("tr.mailbox-item-row:not(.hidden):not(.mailbox-item-row-empty)").length === 0)
                                     $table.find("tr.mailbox-item-row-empty").removeClass("hidden");
                             } else { // If marking as spam or deleting
+                                var matchingTableIds = [ $table.attr("id") ];
                                 var newItemIDs = data[3]; // Array of new spam/deleted item IDs to assign to the new item elements
                                 // Loop through the selected rows
                                 $rows.each(function () {
@@ -250,16 +251,27 @@
                                     if (mailboxType.toString() != "@((byte) EnumMailboxType.Moderation)") { // If the mailbox type is not moderation
                                         if ($(this).hasClass("mailbox-item-row-starred")) { // If the item is starred
                                             // Remove the starred class and starred item from the starred mailbox to reflect the server-side changes
-                                            $(this).removeClass("mailbox-item-row-starred");
+                                            $(".mailbox-list-table > tbody > tr.mailbox-item-row[data-private-message-id=" + $(this).attr("data-private-message-id") + "]").removeClass("mailbox-item-row-starred").find(".mailbox-item-star").remove();
                                             $("#mailboxListTable@{@Html.Raw((byte) EnumMailboxType.Starred);} > tbody > tr.mailbox-item-row[data-private-message-id=" + $(this).attr("data-private-message-id") + "]").remove();
+                                            // If it is not already included, add the starred table to the list of tables to check for toggling the visiblity of the "no items" row
+                                            if (matchingTableIds.indexOf("mailboxListTable@{@Html.Raw((byte) EnumMailboxType.Starred);}") == -1)
+                                                matchingTableIds.push("mailboxListTable@{@Html.Raw((byte) EnumMailboxType.Starred);}");
                                         }
+                                        // Add any tables not already added for items matching this private message id to the list of ids for tables to check for toggling the visibility of the "no items" row
+                                        $(".mailbox-list-table > tbody > tr.mailbox-item-row[data-private-message-id=" + $(this).attr("data-private-message-id") + "]").each(function() {
+                                            var tableId = $(this).parent().parent().attr("id");
+                                            if (matchingTableIds.indexOf(tableId) == -1)
+                                                matchingTableIds.push(tableId);
+                                        });
                                         // Create a copy of this item with the appropriate data changes
                                         var $newItem = $(this).clone(true).attr("data-mailbox-type-id", $btn.is(".btn-mark-spam") ? @((byte) EnumMailboxType.Spam) : @((byte) EnumMailboxType.Deleted))
                                             .attr("data-mailbox-item-id", newItemIDs.shift());
                                         $newItem.find(".mailbox-item-select").attr("name", "select-" + $newItem.attr("data-mailbox-type-id") + "-" + $newItem.attr("data-mailbox-item-id"))
                                             .prop("checked", null); // Set the new item's checkbox's new name, uncheck its checkbox
-                                        // Hide the inbox/sent/spam item(s)
+                                        // Hide the inbox/sent/spam items
                                         $(".mailbox-list-table > tbody > tr.mailbox-item-row[data-private-message-id=" + $(this).attr("data-private-message-id") + "]").addClass("hidden");
+                                        if ($btn.is(".btn-delete")) // If deleting items, remove spam items (if any)
+                                            $("#mailboxListTable@{@Html.Raw((byte) EnumMailboxType.Spam);} > tbody > tr.mailbox-item-row[data-private-message-id=" + $(this).attr("data-private-message-id") + "]").remove();
                                         $("#mailboxListTable" + $newItem.attr("data-mailbox-type-id") + " > tbody").append($newItem); // Append the new item to the appropriate tab
                                         $("#mailboxListTable" + $newItem.attr("data-mailbox-type-id") + " > tbody > tr.mailbox-item-row-empty").addClass("hidden"); // Hide the empty placeholder if necessary
                                         $(".mailbox-sort[data-mailbox-type-id=" + $newItem.attr("data-mailbox-type-id") + "]").trigger("change"); // Sort the items so that the new item is in its correct position
@@ -267,11 +279,15 @@
                                     } else
                                         $(this).remove(); // Remove the moderation item
                                 });
-                                // Show or hide the placeholder for the table if necessary
-                                if ($table.find("tr.mailbox-item-row:not(.hidden)").length > 0)
-                                    $table.find("tr.mailbox-item-row-empty").addClass("hidden");
-                                else
-                                    $table.find("tr.mailbox-item-row-empty").removeClass("hidden");
+                                console.log(matchingTableIds);
+                                for (var t = 0; t < matchingTableIds.length; t++) {
+                                    var $matchingTable = $("#" + matchingTableIds[t]);
+                                    // Show or hide the placeholder for the table if necessary
+                                    if ($matchingTable.find("tr.mailbox-item-row:not(.hidden):not(.mailbox-item-row-empty)").length > 0)
+                                        $matchingTable.find("tr.mailbox-item-row-empty").addClass("hidden");
+                                    else
+                                        $matchingTable.find("tr.mailbox-item-row-empty").removeClass("hidden");
+                                }
                             }
 
                             $(".mailbox-user-unread-count > label").html(data[1]); // Update the unread items count

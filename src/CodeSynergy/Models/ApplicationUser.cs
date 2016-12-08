@@ -363,7 +363,7 @@ namespace CodeSynergy.Models
             return context.RepVotes.SingleOrDefault(u => u.VoterUser.Email == username && u.VoteeUserID == Id);
         }
 
-        public void AddVote(ApplicationDbContext context, UserRepository userRepository, ApplicationUser voter, bool vote)
+        public async Task AddVote(ApplicationDbContext context, UserRepository userRepository, ApplicationUser voter, bool vote)
         {
             RepVote RepVote = new RepVote()
             {
@@ -376,23 +376,26 @@ namespace CodeSynergy.Models
                 Reputation++;
             else
                 Reputation--;
+            await userRepository.UpdateAsync(this);
             context.SaveChanges();
         }
 
-        public void UpdateVote(ApplicationDbContext context, UserRepository userRepository, RepVote RepVote)
+        public async Task UpdateVote(ApplicationDbContext context, UserRepository userRepository, RepVote RepVote)
         {
             context.RepVotes.Update(RepVote);
             Reputation += RepVote.Vote ? 2 : -2;
+            await userRepository.UpdateAsync(this);
             context.SaveChanges();
         }
 
-        public void RemoveVote(ApplicationDbContext context, UserRepository userRepository, RepVote RepVote)
+        public async Task RemoveVote(ApplicationDbContext context, UserRepository userRepository, RepVote RepVote)
         {
             if (RepVote.Vote)
                 Reputation--;
             else
                 Reputation++;
             context.RepVotes.Remove(RepVote);
+            await userRepository.UpdateAsync(this);
             context.SaveChanges();
         }
 

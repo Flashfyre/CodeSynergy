@@ -30,6 +30,7 @@
 @Html.Partial("_ProfileBackgroundPartial", user)
 
 <script type="text/javascript">
+    // Create/load cookie for grid sort options
     var gridName = "rankingGrid";
     var gridData = localStorage.getItem("gridData") != null ? JSON.parse(localStorage.getItem("gridData")) : null;
     if (gridData == null) {
@@ -42,13 +43,15 @@
     }
 
     $(document).ready(function () {
+        // Initialize rankings grid
         $("#main .mvc-grid").mvcgrid({
             cellClicked: function (grid, cell, data, e) {
+                console.log("test");
                 if (!$(cell).is(":first-child")) {
                     switch (grid.name) {
                         default:
                             var displayName = data[Object.keys(data)[0]];
-                            displayName = displayName.slice(0, displayName.lastIndexOf(" ", displayName.lastIndexOf(" ") - 1));
+                            displayName = displayName.slice(0, displayName.lastIndexOf(" ", displayName.lastIndexOf(" ") - 1)).trimLeft();
                             window.location.href = "/User/" + displayName;
                             break;
                     }

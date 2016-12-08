@@ -10,8 +10,6 @@ namespace CodeSynergy.Models.Repositories
 {
     public class UserRepository : UserStore<ApplicationUser, IdentityRole<string>, ApplicationDbContext, string>
     {
-        ApplicationDbContext context;
-
         public UserRepository(ApplicationDbContext context, IdentityErrorDescriber describer = null) : base(context, describer) { }
 
         public bool HasActiveBan(BanRepository bans, ApplicationUser user)
@@ -39,12 +37,20 @@ namespace CodeSynergy.Models.Repositories
                 .FirstOrDefault(u => u.Email == email);
         }
 
+        public ApplicationUser FindByDisplayName(string displayName)
+        {
+            ThrowIfDisposed();
+            return Users.Include(u => u.Roles).Include(u => u.Country).Include(u => u.Region).Include(u => u.QAPosts).ThenInclude(p => p.Question).ThenInclude(q => q.QuestionTags).Include(u => u.QAPosts)
+                .ThenInclude(p => p.Comments).Include(u => u.Comments).ThenInclude(c => c.Question).ThenInclude(q => q.Posts).Include(u => u.Stars).Include(u => u.UserTags).ThenInclude(ut => ut.Tag)
+                .FirstOrDefault(u => u.DisplayName.Replace(" ", "_") == displayName.Replace(" ", "_"));
+        }
+
         public async Task<ApplicationUser> FindByDisplayNameAsync(string displayName)
         {
             ThrowIfDisposed();
             return await Users.Include(u => u.Roles).Include(u => u.Country).Include(u => u.Region).Include(u => u.QAPosts).ThenInclude(p => p.Question).ThenInclude(q => q.QuestionTags).Include(u => u.QAPosts)
                 .ThenInclude(p => p.Comments).Include(u => u.Comments).ThenInclude(c => c.Question).ThenInclude(q => q.Posts).Include(u => u.Stars).Include(u => u.UserTags).ThenInclude(ut => ut.Tag)
-                .FirstOrDefaultAsync(u => u.DisplayName == displayName);
+                .FirstOrDefaultAsync(u => u.DisplayName.Replace(" ", "_") == displayName.Replace(" ", "_"));
         }
 
         public async Task<ApplicationUser> FindByEmailAsync(string email)

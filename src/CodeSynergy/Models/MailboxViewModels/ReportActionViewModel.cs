@@ -10,6 +10,6 @@ namespace CodeSynergy.Models.MailboxViewModels
         public string AssigneeDisplayName { get; set; }
         [Required, StringLength(255), ValidateLinks("report action")]
         [Display(Name = "Report Action")]
-        public string Contents { get; set; }
+        public string MessageContents { get; set; }
     }
 }

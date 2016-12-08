@@ -31,8 +31,6 @@ namespace CodeSynergy.Models.QuestionViewModels
 
     public class ValidateLinksAttribute : ValidationAttribute
     {
-        bool IsTextArea = false;
-
         public ValidateLinksAttribute(string fieldName = "post") : base()
         {
             ErrorMessage = string.Format("Your {0} contains a link or embedded image that references an untrusted URL. Please remove the suspicious link or image.", fieldName);
@@ -45,6 +43,9 @@ namespace CodeSynergy.Models.QuestionViewModels
 
         public override bool IsValid(object value)
         {
+            if (value == null)
+                return true;
+
             string content = WebUtility.HtmlDecode(value as string).ToLower();
             List<string> contentATags = new List<string>();
             List<string> contentImgTags = new List<string>();
@@ -52,9 +53,6 @@ namespace CodeSynergy.Models.QuestionViewModels
             UntrustedURLPatternRepository untrustedURLPatterns = new UntrustedURLPatternRepository(new ApplicationDbContext());
 
             int strPos = 0;
-
-            if (value == null)
-                return true;
 
             while ((strPos = content.IndexOf("<a", strPos)) > -1 && content.IndexOf("</a>", strPos) > -1)
             {

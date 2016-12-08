@@ -25,7 +25,7 @@ namespace CodeSynergy.Models.Repositories
         public IEnumerable<Star> GetAllForUser(ApplicationUser user)
         {
             return context.Stars.Where(s => s.UserID == user.Id).Include(s => s.Question).ThenInclude(q => q.Posts).ThenInclude(p => p.Comments).ThenInclude(c => c.User).ThenInclude(u => u.Roles)
-                .Include(s => s.Question).ThenInclude(q => q.Posts).ThenInclude(p => p.User).AsEnumerable();
+                .Include(s => s.Question).ThenInclude(q => q.Posts).ThenInclude(p => p.User).ThenInclude(u => u.Roles).Include(s => s.Question).ThenInclude(q => q.QuestionTags).AsEnumerable();
         }
 
         public void Add(Star item)

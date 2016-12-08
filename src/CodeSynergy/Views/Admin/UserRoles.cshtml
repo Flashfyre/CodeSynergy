@@ -6,6 +6,7 @@
 
 <script type="text/javascript">
     $(document).ready(function () {
+        // Initialize custom user role dropdown grid filter
         var UserRoleSelectFilter = (function () {
             function UserRoleSelectFilter() {
             }
@@ -74,6 +75,7 @@
             return UserRoleSelectFilter;
         })();
 
+        // Set change role button click event
         $("#changeRoleBtn:not(:disabled)").click(function () {
             $.ajax({
                 type: "POST",
@@ -105,6 +107,7 @@
             });
         });
 
+        // Create/load cookie for grid sort options
         var gridName = "userRoleGrid";
         var gridData = localStorage.getItem("gridData") != null ? JSON.parse(localStorage.getItem("gridData")) : null;
         if (gridData == null) {
@@ -116,6 +119,7 @@
             localStorage.setItem("gridData", JSON.stringify(gridData));
         }
 
+        // Initialize the user roles grid
         $('#modal .mvc-grid').mvcgrid({
             filters: {
                 'UserRoleSelect': new UserRoleSelectFilter()

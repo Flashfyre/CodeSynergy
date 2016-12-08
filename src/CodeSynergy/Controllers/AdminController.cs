@@ -29,6 +29,14 @@ namespace CodeSynergy.Controllers
         [HttpGet]
         public IActionResult Moderation(string DisplayName = null)
         {
+            if (HttpContext.User.Identity.Name == null) // If the user is not logged in, redirect them to the homepage with a login modal
+                return Redirect("/?modal=Account/Login");
+            else
+            {
+                ApplicationUser user = _users.FindByEmail(HttpContext.User.Identity.Name);
+                if (user.Role != "Moderator" && user.Role != "Administrator") // If the user is not a moderator or administrator, redirect them to the homepage
+                    return Redirect("/");
+            }
             ViewData["DisplayName"] = DisplayName;
             ViewBag.BanTerms = BanTermHelper.Values();
 
@@ -327,6 +335,15 @@ namespace CodeSynergy.Controllers
         [HttpGet]
         public IActionResult UserRoles()
         {
+            if (HttpContext.User.Identity.Name == null) // If the user is not logged in, redirect them to the homepage with a login modal
+                return Redirect("/?modal=Account/Login");
+            else
+            {
+                ApplicationUser user = _users.FindByEmail(HttpContext.User.Identity.Name);
+                if (user.Role != "Administrator") // If the user is not an administrator, redirect them to the homepage
+                    return Redirect("/");
+            }
+
             return View();
         }
 
@@ -355,7 +372,8 @@ namespace CodeSynergy.Controllers
             int errorCount = 0;
             string errorMessage = null;
 
-            if (!Request.HttpContext.User.IsInRole("Administrator")) // User is not an administrator: cancel, add error, and ban the user for 1 week for using client-side page alteration to attempt to go beyond their privileges
+            // User is not an administrator: cancel, add error, and ban the user for 1 week for using client-side page alteration to attempt to go beyond their privileges
+            if (!Request.HttpContext.User.IsInRole("Administrator"))
             {
                 errorCount++;
                 errorMessage = "You are you not an administrator! You have received a 1 week ban for suspicious activity.";

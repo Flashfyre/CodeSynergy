@@ -120,7 +120,7 @@ namespace CodeSynergy.Models.AccountViewModels
             string displayName = (value as string).Replace(' ', '_');
             bool isValid = true;
 
-            isValid = users.FindByDisplayNameAsync(displayName) == null;
+            isValid = users.FindByDisplayName(displayName) == null;
 
             return isValid;
         }

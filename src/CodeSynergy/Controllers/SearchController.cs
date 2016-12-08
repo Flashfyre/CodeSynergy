@@ -14,21 +14,20 @@ namespace CodeSynergy.Controllers
 {
     public class SearchController : Controller
     {
-        private ApplicationDbContext _context;
-        private readonly UserRepository _users;
-        private readonly QuestionRepository _questions;
-        private readonly TagRepository _tags;
-        private readonly QuestionTagRepository _questionTags;
+        private readonly UserRepository _users; // Repository for users
+        private readonly QuestionRepository _questions; // Repository for questions
+        private readonly TagRepository _tags; // Repository for tags
+        private readonly QuestionTagRepository _questionTags; // Repository for question tags
 
         public SearchController(UserStore<ApplicationUser, IdentityRole<string>, ApplicationDbContext, string> users, IRepository<Question, int> questions, IRepository<Tag, int> tags, IJoinTableRepository<QuestionTag, int, int> questionTags) : base()
         {
-            _context = new ApplicationDbContext();
             _users = (UserRepository) users;
             _questions = (QuestionRepository) questions;
             _tags = (TagRepository) tags;
             _questionTags = (QuestionTagRepository) questionTags;
         }
 
+        // Search page loaded
         // GET: /Search/SearchType/Query
         public IActionResult Index(string SearchType, string Query, string RowsPerPage, string Modal)
         {
@@ -36,19 +35,20 @@ namespace CodeSynergy.Controllers
             return View(new SearchViewModel(SearchType, Query, RowsPerPage));
         }
 
+        // Search page POST request sent
         // POST: /Search/
         [HttpPost]
         [AllowAnonymous]
         public IActionResult Index(SearchViewModel SearchModel)
         {
-            if (ModelState.IsValid)
-            {
+            if (ModelState.IsValid) // Search is valid: redirect to the search page using the posted values for parameters
                 return Redirect("/Search/" + Enum.GetName(typeof(SearchViewModel.EnumSearchType), SearchModel.SearchType) + "s/" + SearchModel.Query + "?rowsperpage=" + SearchModel.RowsPerPage);
-            }
 
-            return View(SearchModel);
+            return View(SearchModel); // Search was invalid: refresh and show errors
         }
 
+        // Search questions grid loaded
+        // GET: /Search/SearchQuestionGrid
         [HttpGet]
         public IActionResult SearchQuestionGrid(string Query, string RowsPerPage = "25")
         {
@@ -58,26 +58,33 @@ namespace CodeSynergy.Controllers
             return PartialView("MvcGrid/_SearchQuestionGrid", SearchResult<Question>.GetSearchResults(_questions.GetAll().Where(q => !q.QuestionPost.DeletedFlag), Query));
         }
 
+        // Search posts grid loaded
+        // GET: /Search/SearchPostGrid
         [HttpGet]
         public IActionResult SearchPostGrid(string Query, string RowsPerPage = "25")
         {
             int rowsPerPage = 25;
             int.TryParse(RowsPerPage, out rowsPerPage);
             ViewBag.RowsPerPage = rowsPerPage;
-            IEnumerable<Post> posts = _context.QAPosts.Where(p => !p.DeletedFlag).Include(p => p.Question).Where(p => !p.Question.QuestionPost.DeletedFlag).Include(p => p.User).AsEnumerable();
-            IEnumerable<Post> comments = _context.Comments.Where(c => !c.DeletedFlag).Include(c => c.Question).Where(c => !c.Question.QuestionPost.DeletedFlag).Include(c => c.User);
+            IEnumerable<Post> posts = _questions.GetAll().Where(q => !q.QuestionPost.DeletedFlag).SelectMany(q => q.Posts).Where(p => !p.DeletedFlag).AsEnumerable();
+            IEnumerable<Post> comments = (posts as IEnumerable<QAPost>).SelectMany(p => p.Comments).Where(c => !c.DeletedFlag).Where(c => !c.Question.QuestionPost.DeletedFlag);
             return PartialView("MvcGrid/_SearchPostGrid", SearchResult<Post>.GetSearchResults(posts, Query).Concat(SearchResult<Post>.GetSearchResults(comments, Query)));
         }
 
+        // Search answers grid loaded
+        // GET: /Search/SearchAnswerGrid
         [HttpGet]
         public IActionResult SearchAnswerGrid(string Query, string RowsPerPage = "25")
         {
             int rowsPerPage = 25;
             int.TryParse(RowsPerPage, out rowsPerPage);
             ViewBag.RowsPerPage = rowsPerPage;
-            return PartialView("MvcGrid/_SearchAnswerGrid", SearchResult<QAPost>.GetSearchResults(_context.QAPosts.Where(a => !a.DeletedFlag).Include(p => p.Question).Where(a => !a.Question.QuestionPost.DeletedFlag).Include(p => p.User).AsEnumerable(), Query));
+            return PartialView("MvcGrid/_SearchAnswerGrid", SearchResult<QAPost>.GetSearchResults(_questions.GetAll().Where(q => !q.QuestionPost.DeletedFlag).SelectMany(q => q.Posts)
+                .Where(p => !p.DeletedFlag).AsEnumerable(), Query));
         }
 
+        // Search tagss grid loaded
+        // GET: /Search/SearchTagGrid
         [HttpGet]
         public IActionResult SearchTagGrid(string Query, string RowsPerPage = "25")
         {
@@ -87,6 +94,8 @@ namespace CodeSynergy.Controllers
             return PartialView("MvcGrid/_SearchTagGrid", SearchResult<Tag>.GetSearchResults(_tags.GetAll(), Query));
         }
 
+        // Search users grid loaded
+        // GET: /Search/SearchUserGrid
         [HttpGet]
         public IActionResult SearchUserGrid(string Query, string RowsPerPage = "25")
         {

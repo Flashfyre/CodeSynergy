@@ -8,21 +8,21 @@
     ViewData["Title"] = "Search" + (Model.SearchType != SearchViewModel.EnumSearchType.Null ? " Results for " + (Model.Query != null ? "\"" + Model.Query + "\" in " : "") + Enum.GetName(typeof(SearchViewModel.EnumSearchType), Model.SearchType) + "s" : "");
     ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
     TagInputViewModel tagInputViewModel = new TagInputViewModel(null, true);
-    List<SelectListItem> rowsPerPageSelectList = Html.GetEnumSelectList(typeof(SearchViewModel.EnumRowsPerPage)).ToList();
-    IEnumerable<SelectListItem> searchTypeSelectList = Html.GetEnumSelectList(typeof(SearchViewModel.EnumSearchType));
-    rowsPerPageSelectList.AsParallel().ForAll(n => n.Text = n.Text.Substring(1));
-    if (!rowsPerPageSelectList.Any(p => int.Parse(p.Value) == Model.RowsPerPage))
+    List<SelectListItem> rowsPerPageSelectList = Html.GetEnumSelectList(typeof(SearchViewModel.EnumRowsPerPage)).ToList(); // Get rows per page options
+    IEnumerable<SelectListItem> searchTypeSelectList = Html.GetEnumSelectList(typeof(SearchViewModel.EnumSearchType)); // Get search types
+    rowsPerPageSelectList.AsParallel().ForAll(n => n.Text = n.Text.Substring(1)); // Remove '_' from rows per page items (needed for valid enum name)
+    if (!rowsPerPageSelectList.Any(p => int.Parse(p.Value) == Model.RowsPerPage)) // If the number of rows per page in the URL is not one of the options, add it to the select list and use that number
     {
         SelectListItem customRowsPerPage = new SelectListItem();
         customRowsPerPage.Value = customRowsPerPage.Text = Model.RowsPerPage.ToString();
         customRowsPerPage.Selected = true;
-        if (int.Parse(rowsPerPageSelectList.Last().Value) > Model.RowsPerPage)
+        if (int.Parse(rowsPerPageSelectList.Last().Value) > Model.RowsPerPage) // Add the new option to its proper position if it is less than the greatest existing option
         {
             rowsPerPageSelectList.Insert(rowsPerPageSelectList.IndexOf(rowsPerPageSelectList.First(p => int.Parse(p.Value) > Model.RowsPerPage)), customRowsPerPage);
         }
-        else
+        else // Rows per page exceeds the greatest existing option: add it to the end
         {
-            if (Model.RowsPerPage > 1000)
+            if (Model.RowsPerPage > 1000) // Specified rows per page exceeds 1000: set to 1000
             {
                 customRowsPerPage.Text = "1000";
                 Model.RowsPerPage = 1000;
@@ -30,9 +30,9 @@
             rowsPerPageSelectList.Add(customRowsPerPage);
         }
     }
-    searchTypeSelectList.AsParallel().ForAll(t => t.Text += "s");
-    searchTypeSelectList.ElementAt(0).Text = "Select a search type";
-    if (Model.SearchType != SearchViewModel.EnumSearchType.Null)
+    searchTypeSelectList.AsParallel().ForAll(t => t.Text += "s"); // Add "s" to search type names
+    searchTypeSelectList.ElementAt(0).Text = "Select a search type"; // Set search type placeholder value text
+    if (Model.SearchType != SearchViewModel.EnumSearchType.Null) // If the search type is not the placeholder value, mark the selected dropdown item as selected
     {
         SelectListItem searchTypeSelectItem = searchTypeSelectList.SingleOrDefault(s => s.Value == ((int)Model.SearchType).ToString());
         if (searchTypeSelectItem != null)
@@ -70,7 +70,7 @@
 
 <script type="text/javascript">
     $(document).ready(function () {
-        var PostTypeSelectFilter = (function () {
+        var PostTypeSelectFilter = (function () { // Grid.Mvc custom post type filter
             function PostTypeSelectFilter() {
             }
 
@@ -136,6 +136,7 @@
             return PostTypeSelectFilter;
         })();
 
+        // Initialize the search grid
         $("#main .mvc-grid").mvcgrid({
             filters: {
                 'TagFilter': new TagFilter(),
@@ -143,6 +144,7 @@
             },
             rowClicked: function (grid, row, data, e) {
                 if (!$(row).children("td:first-child").hasClass("mvc-grid-empty")) {
+                    // Set row links according to the type of search
                     switch (grid.name) {
                         case "searchQuestionGrid":
                             window.location.href = "/Question/" + data["Object.QuestionID"];

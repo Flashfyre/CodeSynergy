@@ -41,7 +41,7 @@ namespace CodeSynergy.Models
         {
             get
             {
-                return DateTime.Now < BanLiftDate || BanDate == BanLiftDate;
+                return DateTime.Now.ToUniversalTime() < BanLiftDate || BanDate == BanLiftDate;
             }
         }
     }

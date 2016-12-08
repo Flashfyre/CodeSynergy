@@ -6,7 +6,7 @@
     ApplicationUser user = Context.Request.HttpContext.User.Identity.Name != null ? await UserManager.FindByEmailAsync(Context.Request.HttpContext.User.Identity.Name) : null;
     bool isAdministrator = user != null && user.Role == "Administrator";
     bool isModerator = user != null && (user.Role == "Moderator" || isAdministrator);
-    bool isLocked = Model.Question.LockedByUserID != null && !isAdministrator;
+    bool isLocked = Model.Question.LockedByUserID != null && !isAdministrator; // Whether the question should appear as locked (administrators are unaffected by questions being locked)
     ViewData["Title"] = Model.Question.SummaryHtml;
 }
 
@@ -16,11 +16,13 @@
 
 @{
     QAPost bestAnswer = Model.Question.BestAnswer;
+    // Get user's answer (if any)
     QAPost userPost = user != null ? Model.Question.VisiblePosts.SingleOrDefault(p => p.User.Email == Context.User.Identity.Name) : null;
+    // All posts (question post, answers, comments) for this question
     List<QAPost> posts = (bestAnswer == null ? Model.Question.VisiblePosts.AsEnumerable() : Model.Question.VisiblePosts.OrderBy(p => p.QuestionPostID != bestAnswer.QuestionPostID)).OrderBy(p => userPost != null && p.QuestionPostID != userPost.QuestionPostID).OrderBy(p => p.QuestionPostID != 1).ToList();
-    Dictionary<int, List<short>> userCommentIds = new Dictionary<int, List<short>>();
-    int lastQuestionPostID = posts.Last().QuestionPostID;
-    if (user != null) {
+    Dictionary<int, List<short>> userCommentIds = new Dictionary<int, List<short>>(); // Key-value pair for the IDs of all comments on posts made by the user
+    int lastQuestionPostID = posts.Last().QuestionPostID; // Question post ID of the last post on this question
+    if (user != null) { // Add user comment IDs for each post's visible comments
         foreach (QAPost post in posts)
         {
             userCommentIds.Add(post.QuestionPostID, post.VisibleComments.Where(c => c.User.Email == Context.User.Identity.Name).Select(c => c.PostCommentID).ToList());
@@ -32,6 +34,7 @@
     var githubID = @{ @Html.Raw(user != null && user.GitHubID != null ? "\"" + user.GitHubID + "\"" : "null"); };
     var githubRepoData = null;
 
+    // Star the question
     function addStar() {
         $.ajax({
             type: "POST",
@@ -40,20 +43,19 @@
             data: {
                 questionID: @Model.Question.QuestionID,
                 __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
-
             },
             dataType: "json",
             success: function (data) {
-                if (data[0]) {
+                if (data[0]) // Toggle star button if operation succeeded
                     $(".btn-star").addClass("starred").addClass("fa-star").removeClass("fa-star-o");
-                } else {
+                else // Operation failed: display error message
                     alert(data[1]);
-                }
             },
             error: function () { alert("Error: Something went wrong while attempting to star the question."); }
         });
     }
 
+    // Unstar the question
     function removeStar() {
         $.ajax({
             type: "POST",
@@ -62,20 +64,19 @@
             data: {
                 questionID: @Model.Question.QuestionID,
                 __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
-
             },
             dataType: "json",
             success: function (data) {
-                if (data[0]) {
+                if (data[0]) // Toggle star button if operation succeeded
                     $(".btn-star").removeClass("starred").addClass("fa-star-o").removeClass("fa-star");
-                } else {
+                else // Operation failed: display error message
                     alert(data[1]);
-                }
             },
             error: function () { alert("Error: Something went wrong while attempting to unstar the question."); }
         });
     }
 
+    // Vote on a post
     function postVote(vote, questionPostID) {
         $.ajax({
             type: "POST",
@@ -86,27 +87,25 @@
                 questionPostID: questionPostID,
                 vote: vote,
                 __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
-
             },
             dataType: "json",
             success: function (data) {
-                if (data[0]) {
+                if (data[0]) { // Toggle vote buttons for the post if operation succeeded
                     var $btn = $("tbody[data-question-post-id=" + questionPostID + "]:first > tr > td > .btn-" + (vote ? "up" : "down") + "vote-post").removeClass("not-voted");
                     var $oppBtn = $("tbody[data-question-post-id=" + questionPostID + "]:first > tr > td > .btn-" + (vote ? "down" : "up") + "vote-post");
-                    if ($btn.hasClass("not-voted") || !$oppBtn.hasClass("not-voted")) {
+                    if ($btn.hasClass("not-voted") || !$oppBtn.hasClass("not-voted"))
                         $oppBtn.addClass("not-voted");
-                    } else {
+                    else
                         $oppBtn.removeClass("not-voted");
-                    }
                     $("tbody[data-question-post-id=" + questionPostID + "]:first > tr > td.post-score > .score-text").html(data[1]);
-                } else {
+                } else // Operation failed: display error message
                     alert(data[1]);
-                }
             },
             error: function () { alert("Error: Something went wrong while attempting to cast a vote on the post."); }
         });
     }
 
+    // Vote on a comment
     function commentVote(vote, questionPostID, postCommentID) {
         $.ajax({
             type: "POST",
@@ -118,27 +117,25 @@
                 postCommentID: postCommentID,
                 vote: vote,
                 __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
-
             },
             dataType: "json",
             success: function (data) {
-                if (data[0]) {
+                if (data[0]) { // Toggle vote buttons for the comment if operation succeeded
                     var $btn = $("table#comment-table-" + questionPostID + " > tbody[data-post-comment-id=" + postCommentID + "]:first > tr > td > .btn-" + (vote ? "up" : "down") + "vote-comment").removeClass("not-voted");
                     var $oppBtn = $("table#comment-table-" + questionPostID + " > tbody[data-post-comment-id=" + postCommentID + "]:first > tr > td > .btn-" + (vote ? "down" : "up") + "vote-comment");
-                    if ($btn.hasClass("not-voted") || !$oppBtn.hasClass("not-voted")) {
+                    if ($btn.hasClass("not-voted") || !$oppBtn.hasClass("not-voted"))
                         $oppBtn.addClass("not-voted");
-                    } else {
+                    else
                         $oppBtn.removeClass("not-voted");
-                    }
                     $("table#comment-table-" + questionPostID + " > tbody[data-post-comment-id=" + postCommentID + "]:first > tr > td.comment-score > .score-text").html(data[1]);
-                } else {
+                } else // Operation failed: display error message
                     alert(data[1]);
-                }
             },
             error: function () { alert("Error: Something went wrong while attempting to cast a vote on the comment."); }
         });
     }
 
+    // Vote on a user's reputation
     function repVote(vote, displayName) {
         $.ajax({
             type: "POST",
@@ -148,32 +145,31 @@
                 displayName: displayName,
                 vote: vote,
                 __RequestVerificationToken: $("input[name=__RequestVerificationToken]").val()
-
             },
             dataType: "json",
             success: function (data) {
-                if (data[0]) {
+                if (data[0]) { // Toggle all rep buttons for the target user if operation succeeded
                     var $btn = $("td.user-rep[data-username=\"" + displayName + "\"] > span > .btn-" + (vote ? "up" : "down") + "vote-rep").removeClass("not-voted");
                     var $oppBtn = $("td.user-rep[data-username=\"" + displayName + "\"] > span > .btn-" + (vote ? "down" : "up") + "vote-rep");
-                    if ($btn.hasClass("not-voted") || !$oppBtn.hasClass("not-voted")) {
+                    if ($btn.hasClass("not-voted") || !$oppBtn.hasClass("not-voted"))
                         $oppBtn.addClass("not-voted");
-                    } else {
+                    else
                         $oppBtn.removeClass("not-voted");
-                    }
                     $("td.user-rep[data-username=\"" + displayName + "\"] > label > label.rep").html(data[1]);
-                } else {
+                } else // Operation failed: display error message
                     alert(data[1]);
-                }
             },
             error: function () { alert("Error: Something went wrong while attempting to cast a vote on the user's reputation."); }
         });
     }
 
+    // Clear a cached TinyMCE message from the local stroage for the specified textarea
     function clearAutosaveData(textareaId) {
         localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-" + textareaId + "-draft");
         localStorage.removeItem("tinymce-autosave-" + window.location.pathname + "-" + textareaId + "-time");
     }
 
+    // Hide the delete buttons for tags
     function hideTagDeleteButtons() {
         var paddingDiff = 0;
         $("#editTagsForm > #tagInputContainer > .tag").each(function() {
@@ -183,6 +179,7 @@
         $("#tagInput").css({ "margin-left": (parseFloat($("#tagInput").css("margin-left")) + paddingDiff) + "px",  "padding-left": (parseFloat($("#tagInput").css("padding-left")) - paddingDiff) + "px"});
     }
 
+    // Delete a post
     function deletePost(questionPostID) {
         $.ajax({
             type: "POST",
@@ -195,27 +192,31 @@
             },
             dataType: "json",
             success: function (data) {
-                if (data[0]) {
+                if (data[0]) { // Operation succeeded
+                    // If the post has comments, mark the post deleted without removing it and without refreshing unless the post is the question post (in which case the question is now locked)
                     if ($("tbody[data-question-post-id=" + questionPostID + "]:not(.separator)").length > 2) {
                         $("tbody[data-question-post-id=" + questionPostID + "]:first > tr > td.post-content").html('<span class=\"content\"><label>[DELETED]</label></span>');
                         $("tbody[data-question-post-id=" + questionPostID + "]:first > tr > td.post-date > label > i").remove();
-                        if (questionPostID == 1)
-                            window.location.reload();
-                    } else {
+                        if (questionPostID == 1) // If deleting a question, redirect to the homepage
+                            window.location.pathname = "/";
+                    } else { // If the post has no comments, animate the post being removed and refresh the page if there are no answers left or if the post is the question post (in which case the question is now locked)
                         $("tbody[data-question-post-id=" + questionPostID + "]").animate({ opacity: 0 }, 2000, function() {
                             $(this).remove();
-                            if (data[1] == "0" || questionPostID == 1)
-                                window.location.reload();
+                            if (data[1] == "0")
+                                window.location = window.location.href;
+                            else if (questionPostID == 1) // If deleting a question, redirect to the homepage
+                                window.location.pathname = "/";
                         });
                     }
-                    $("#answer-count").html(data[1] + " Answer" + (data[1] != "1" ? "s" : ""));
-                } else
+                    $("#answer-count").html(data[1] + " Answer" + (data[1] != "1" ? "s" : "")); // Update the answer count
+                } else // Operation failed: display error message
                     alert(data[1]);
             },
             error: function () { alert("Error: Something went wrong while attempting to delete the post."); }
         });
     }
 
+    // Delete a comment
     function deleteComment(questionPostID, postCommentID) {
         $.ajax({
             type: "POST",
@@ -229,11 +230,12 @@
             },
             dataType: "json",
             success: function (data) {
-                if (data[0]) {
+                if (data[0]) { // Operation succeeded
+                    // Animate the comment being deleted
                     $((data[1] != "0" ? "tbody[data-question-post-id=" + questionPostID + "][data-post-comment-id=" + postCommentID + "]" : "tbody.comments[data-question-post-id=" + questionPostID + "]")).animate({ opacity: 0 }, 1500, function() {
                         $(this).remove();
                     });
-                } else
+                } else // Operation failed: display error message
                     alert(data[1]);
             },
             error: function () { alert("Error: Something went wrong while attempting to delete the comment."); }
@@ -241,24 +243,24 @@
     }
 
     $(document).ready(function () {
-        if (location.hash) {
+        if (location.hash) { // If the hash contains an anchor for a specified post or comment, set the URL in order to change the scroll position to that post or comment (requires delay)
             window.setTimeout(function() {
                 location.href = location.hash;
             }, 10);
         }
 
-        $(".btn-edit-tags").click(function () {
+        $(".btn-edit-tags").click(function () { // Set tag edit button click event
             $(this).toggleClass("active");
             $(".btn-save-tags").toggleClass("disabled");
 
-            if ($(this).hasClass("active")) {
+            if ($(this).hasClass("active")) { // Tag editing is now active: enable tag editing
                 $("#editTagsForm").toggleClass("read-only");
                 var paddingDiff = 0;
                 $("#editTagsForm > #tagInputContainer > .tag").each(function() {
                     paddingDiff += $(this).children("a")[0].offsetWidth - 5;
                 });
                 $("#tagInput").css({ "margin-left": (parseFloat($("#tagInput").css("margin-left")) - paddingDiff) + "px",  "padding-left": (parseFloat($("#tagInput").css("padding-left")) + paddingDiff) + "px"});
-            } else {
+            } else { // Tag editing is now inactive: disable tag editing
                 $("#tagInputContainer > .tag, #tagInputContainer > input:not(#tagInput)").remove();
                 var tagstring = "";
                 $("#tagsContainer > .tag").each(function() {
@@ -269,7 +271,7 @@
             }
         });
 
-        $(".btn-save-tags").click(function() {
+        $(".btn-save-tags").click(function() { // Set save tags button click event
             $.ajax({
                 type: "POST",
                 url: '/Question/PostQuestionTags',
@@ -277,7 +279,7 @@
                 data: $("#editTagsForm").serializeArray(),
                 dataType: "json",
                 success: function (data) {
-                    if (data[0]) {
+                    if (data[0]) { // Operation succeeded: set tag container contents to updated tags
                         $(".tag, #tagInputContainer > input:not(#tagInput)").remove();
                         var tagstring = "";
                         for (var t = 0; t < data[1].length; t++) {
@@ -294,7 +296,7 @@
             });
         });
 
-        $(".btn-upvote:not(.disabled)").click(function () {
+        $(".btn-upvote:not(.disabled)").click(function () { // Set upvote button click event
             if ($(this).hasClass("btn-upvote-post"))
                 postVote(true, $(this).parentsUntil("table#post-table", "tbody").data("question-post-id"));
             else if ($(this).hasClass("btn-upvote-comment")) {
@@ -304,7 +306,7 @@
                 repVote(true, $(this).parent().parent().data("username"));
         });
 
-        $(".btn-downvote:not(.disabled)").click(function () {
+        $(".btn-downvote:not(.disabled)").click(function () { // Set downvote button click event
             if ($(this).hasClass("btn-downvote-post"))
                 postVote(false, $(this).parentsUntil("table#post-table", "tbody").data("question-post-id"));
             else if ($(this).hasClass("btn-downvote-comment")) {
@@ -314,20 +316,19 @@
                 repVote(false, $(this).parent().parent().data("username"));
         });
 
-        $(".btn-star:not(.disabled)").click(function () {
-            if (!$(this).hasClass("starred")) {
+        $(".btn-star:not(.disabled)").click(function () { // Set star button click event
+            if (!$(this).hasClass("starred"))
                 addStar();
-            } else {
+            else
                 removeStar();
-            }
         });
 
-        $(".btn-add-comment").click(function () {
+        $(".btn-add-comment").click(function () { // Set add comment button click event
             $("form:visible .btn-cancel").click();
             $(this).hide().next().removeClass('hidden');
         });
 
-        $(".btn-cancel").click(function() {
+        $(".btn-cancel").click(function() { // Set cancel button click event
             // Use some jQuery cloning and removal to reinitialize the TinyMCE editors with their original content
             $('textarea[name=Contents]:last-child').each(function() { clearAutosaveData($(this).attr("id")); $(this).clone().show().insertAfter($(this)); $(this).prev().remove(); $(this).remove(); });
             initEditors();
@@ -335,15 +336,14 @@
             return false;
         });
 
-        if (window.location.hash) {
+        if (window.location.hash) // If the hash contains a specified post or comment, highlight that post or comment
             $("a[name=" + window.location.hash.slice(1) + "]").parent().parent().parent().addClass("highlight");
-        }
 
-        @if (isModerator && Model.Question.DupeOriginalID == 0) {
+        @if (isModerator && Model.Question.DupeOriginalID == 0) { // If the user can mark the question as a duplicate and there is no duplicate, set the mark as duplicate form submit event
             @Html.Raw("$('#markAsDupeForm').submit(function() { var dupeOriginalID = parseInt(prompt('Enter the Question ID of the question this is a duplicate of. This ID can be seen by hovering over a question name.')); if (!isNaN(dupeOriginalID)) { $('#DupeOriginalID').val(dupeOriginalID); return true; } else { return false; } });");
         }
 
-        $("#postAnswerForm, .postCommentForm").each(function () {
+        $("#postAnswerForm, .postCommentForm").each(function () { // Empty textareas that don't apply to a posted message (by default, all textareas contain the contents of a posted message)
             @if (Model.Contents != null && Model.Contents != "") {
                 @if (!Model.IsComment) {
                     @if (Model.QuestionPostID == null)
@@ -361,7 +361,7 @@
             @Html.Raw("$(this).find(\"textarea:last\").val(\"\");");
         });
 
-        $(".editAnswerForm, .editCommentForm").each(function () {
+        $(".editAnswerForm, .editCommentForm").each(function () { // Empty textareas that don't apply to an edited message (by default, all textareas contain the contents of an edited message)
             @if (Model.Contents != null && Model.Contents != "") {
                 @if (!Model.IsComment) {
                     @if (Model.QuestionPostID != null)
@@ -379,7 +379,7 @@
             @Html.Raw("$(this).find(\"textarea:last\").val($(this).parentsUntil(\"tr\", \"td.content\").children(\".content\").html());");
         });
 
-        @if (userPost != null || isModerator)
+        @if (userPost != null || isModerator) // If the user is a moderator/administrator or has an answer posted on this question, set the click events for edit and delete buttons
         {
             @Html.Raw("$('.btn-edit-post').click(function() { var $editAnswerForm = $(this).parent().parent().parent().parent().find('.editAnswerForm'); var formIsHidden = $editAnswerForm.hasClass('hidden'); $('form:visible .btn-cancel').click(); if (formIsHidden) { $editAnswerForm.removeClass('hidden').prev().hide(); } });");
             @if (!isModerator && userPost.QuestionPostID != 1)
@@ -394,7 +394,7 @@
             }
         }
 
-        @if (userCommentIds.Any() || isModerator)
+        @if (userCommentIds.Any() || isModerator) // If the user is a moderator/administrator or has any comments posted, set the click events for edit and delete buttons
         {
             @Html.Raw("$('.btn-edit-comment').click(function() { var $tbody = $(this).parent().parent().parent().parent(); var $form = $('.editCommentForm[data-question-post-id=' + $tbody.data('question-post-id') + '][data-post-comment-id=' + $tbody.data('post-comment-id') + ']'); var formIsHidden = $form.hasClass('hidden'); $('form:visible .btn-cancel').click(); if (formIsHidden) { $form.removeClass('hidden').prev().hide(); } });" +
                 " $('.btn-delete-comment').click(function() { if (confirm('Are you sure you want to delete " + (!isModerator ? "your" : "this") + " comment on the post? This action cannot be reversed.')) { var $commentBody = $(this).parent().parent().parent().parent(); deleteComment($commentBody.data('question-post-id'), $commentBody.data('post-comment-id')); } });");
@@ -531,7 +531,7 @@
                                 </td>
                                 <td class="post-date post-post-date">
                                     <label title="@Html.Raw("Posted on " + p.PostDate.ToString())">
-                                        @p.GetTimeSincePostDate()@if (p.EditDate != null) { @Html.Raw("<span title='Last Edited on " + p.EditDate + "'> *</span>") }@{ if (!isLocked && (isUserPost || (isModerator && (p.User.Role == "Member" || (isAdministrator && p.User.Role == "Moderator") || user.Email == "admin@codesynergy.com"))) && !p.DeletedFlag) { @Html.Raw("<i class='fa fa-pencil btn-edit btn-edit-post hover-green'></i>"); if (!isLocked && (isUserPost || ((isModerator && (p.User.Role == "Member" || (isAdministrator && p.User.Role == "Moderator") || user.Email == "admin@codesynergy.com"))))) { @Html.Raw("&nbsp;<i class='fa fa-times btn-delete btn-delete-" + (p.QuestionPostID > 1 ? "post" : "question") + "'></i>"); } } }
+                                        @p.GetTimeSincePostDate()@if (p.EditDate != null) { @Html.Raw("<span title='Last Edited on " + p.EditDate + "'> *</span>") }@{ if (!isLocked && (isUserPost || (isModerator && (p.User.Role == "Member" || (isAdministrator && p.User.Role == "Moderator") || user.Email == "admin@codesynergy.com"))) && !p.DeletedFlag) { @Html.Raw("<i class='fa fa-pencil btn-edit btn-edit-post hover-green'></i>"); if (!isLocked && ((isUserPost && p.QuestionPostID != 1) || ((isModerator && (p.User.Role == "Member" || (isAdministrator && p.User.Role == "Moderator") || user.Email == "admin@codesynergy.com"))))) { @Html.Raw("&nbsp;<i class='fa fa-times btn-delete btn-delete-" + (p.QuestionPostID > 1 ? "post" : "question") + "'></i>"); } } }
                                     </label>
                                 </td>
                             </tr>
@@ -575,7 +575,7 @@
                                             <input type="hidden" asp-for="IsComment" value="@false" />
                                             <div class="row">
                                                 <div class="col-md-12">
-                                                    <textarea asp-for="@Model.Contents" id="Contents_editAnswer" maxlength="4000"></textarea>
+                                                    <textarea asp-for="@Model.Contents" id="Contents_editAnswer_@p.QuestionPostID" maxlength="4000"></textarea>
                                                 </div>
                                             </div>
                                             <br />
@@ -744,7 +744,7 @@
                             </tbody>
                         }
                         <tbody class="separator" data-question-post-id="@p.QuestionPostID">
-                            @if (p.QuestionPostID != lastQuestionPostID) {
+                            @if (p.QuestionPostID != lastQuestionPostID || lastQuestionPostID == 1) {
                                 <tr>
                                     <td colspan="6">
                                         @if (p.QuestionPostID == 1)

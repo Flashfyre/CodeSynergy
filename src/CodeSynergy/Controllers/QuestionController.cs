@@ -10,16 +10,17 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using CodeSynergy.Models.QuestionViewModels;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace CodeSynergy.Controllers
 {
     public class QuestionController : Controller
     {
-        private ApplicationDbContext _context;
-        private readonly UserRepository _users;
-        private readonly QuestionRepository _questions;
-        private readonly TagRepository _tags;
-        private readonly QuestionTagRepository _questionTags;
+        private ApplicationDbContext _context; // Database context
+        private readonly UserRepository _users; // Repository for users
+        private readonly QuestionRepository _questions; // Repository for questions
+        private readonly TagRepository _tags; // Repository for tags
+        private readonly QuestionTagRepository _questionTags; // Repository for question tags
 
         public QuestionController(UserStore<ApplicationUser, IdentityRole<string>, ApplicationDbContext, string> users, IRepository<Question, int> questions, IRepository<Tag, int> tags, IJoinTableRepository<QuestionTag, int, int> questionTags) : base()
         {
@@ -30,17 +31,21 @@ namespace CodeSynergy.Controllers
             _questionTags = (QuestionTagRepository) questionTags;
         }
 
+        // Question page loaded
+        // GET: /Question/
         [HttpGet]
         public IActionResult Index(int Id, string Modal)
         {
-            Question question = _questions.Find(Id);
+            Question question = _questions.Find(Id); // Question for a given ID
 
-            if (question != null)
+            if (question != null) // Question is valid
             {
-                ViewBag.PostVotes = _context.QAPostVotes.Where(v => v.User.Email == Request.HttpContext.User.Identity.Name && v.QuestionID == Id).ToDictionary(v => v.QuestionPostID);
+                // Add votes for all the question's posts
+                ViewBag.PostVotes = _context.QAPostVotes.Include(v => v.User).Where(v => v.User.Email == Request.HttpContext.User.Identity.Name && v.QuestionID == Id).ToDictionary(v => v.QuestionPostID);
                 Dictionary<int, Dictionary<short, CommentVote>> commentVotes = new Dictionary<int, Dictionary<short, CommentVote>>();
-                Dictionary<string, RepVote> repVotes = _context.RepVotes.Where(v => v.VoterUser.Email == Request.HttpContext.User.Identity.Name && question.VisiblePosts.Any(p => p.UserID == v.VoterUserID)).ToDictionary(v => v.VoteeUserID);
-                if (_context.Comments.Any())
+                Dictionary<string, RepVote> repVotes = _context.RepVotes.Include(v => v.VoterUser)
+                    .Where(v => v.VoterUser.Email == Request.HttpContext.User.Identity.Name && question.VisiblePosts.Any(p => p.UserID == v.VoteeUserID)).ToDictionary(v => v.VoteeUserID);
+                if (_context.Comments.Any()) // If there are any comments, add comment votes for each comment on each post
                 {
                     foreach (QAPost post in question.VisiblePosts)
                     {
@@ -63,34 +68,35 @@ namespace CodeSynergy.Controllers
 
                 ViewData["Modal"] = Modal;
 
+                // If the user is not the question poster, increment the question view count
                 if (question.QuestionPost.User.Email != Request.HttpContext.User.Identity.Name)
                 {
                     question.ViewCount++;
                     _questions.Update(question);
-                    if (!Request.Cookies.Any(c => c.Key == "recently_viewed"))
+                }
+
+                // If the recently viewed list doesn't yet exists in cookies, add it with this question
+                if (!Request.Cookies.Any(c => c.Key == "recently_viewed"))
+                {
+                    Response.Cookies.Append("recently_viewed", JsonConvert.SerializeObject(new int[] { question.QuestionID }));
+                }
+                else // If the recently viewed list exists in cookies, add this question to the list
+                {
+                    int[] questionIds = JsonConvert.DeserializeObject<int[]>(Request.Cookies["recently_viewed"]);
+                    if (questionIds.Contains(question.QuestionID))
                     {
-                        Response.Cookies.Append("recently_viewed", JsonConvert.SerializeObject(new int[] { question.QuestionID }));
+                        List<int> reorderedIds = new List<int>() { question.QuestionID };
+                        foreach (int id in questionIds)
+                        {
+                            if (id != question.QuestionID)
+                                reorderedIds.Add(id);
+                        }
+                        questionIds = reorderedIds.Take(10).ToArray();
                     }
                     else
-                    {
-                        int[] questionIds = JsonConvert.DeserializeObject<int[]>(Request.Cookies["recently_viewed"]);
-                        if (questionIds.Contains(question.QuestionID))
-                        {
-                            List<int> reorderedIds = new List<int>() { question.QuestionID };
-                            foreach (int id in questionIds)
-                            {
-                                if (id != question.QuestionID)
-                                    reorderedIds.Add(id);
-                            }
-                            questionIds = reorderedIds.Take(10).ToArray();
-                        }
-                        else
-                        {
-                            questionIds = questionIds.Prepend(question.QuestionID).Take(10).ToArray();
-                        }
+                        questionIds = questionIds.Prepend(question.QuestionID).Take(10).ToArray();
 
-                        Response.Cookies.Append("recently_viewed", JsonConvert.SerializeObject(questionIds));
-                    }
+                    Response.Cookies.Append("recently_viewed", JsonConvert.SerializeObject(questionIds));
                 }
 
                 return View(new PostAnswerViewModel(question));
@@ -100,6 +106,8 @@ namespace CodeSynergy.Controllers
             }
         }
 
+        // Action performed on view question page
+        // POST: /Question/
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Index(PostAnswerViewModel model, string returnUrl = null)
@@ -107,7 +115,7 @@ namespace CodeSynergy.Controllers
             string username = Request.HttpContext.User.Identity.Name;
             Question question = _questions.Find(model.QuestionID);
 
-            if (ModelState.IsValid)
+            if (ModelState.IsValid) // Action is valid
             {
                 ApplicationUser user = await _users.FindByEmailAsync(username);
 
@@ -177,9 +185,7 @@ namespace CodeSynergy.Controllers
                                 originalQuestion = question;
                             }
                             else
-                            {
                                 duplicateQuestion = question;
-                            }
 
                             duplicateQuestion.DupeOriginalID = (int)model.DupeOriginalID;
                             _questions.Update(duplicateQuestion);
@@ -188,7 +194,7 @@ namespace CodeSynergy.Controllers
                         model.DupeOriginalID = 0;
                     }
                 }
-                else if (user.Role == "Moderator" || user.Role == "Administrator")
+                else if (user.Role == "Moderator" || user.Role == "Administrator") // Form post is a locking of the question
                 {
                     question.LockedDate = DateTime.Now;
                     question.LockedByUserID = user.Id;
@@ -201,18 +207,17 @@ namespace CodeSynergy.Controllers
                 model.Contents = "";
             }
 
-            ViewBag.PostVotes = _context.QAPostVotes.Where(v => v.User.Email == username && v.QuestionID == model.QuestionID).ToDictionary(v => v.QuestionPostID);
+            ViewBag.PostVotes = _context.QAPostVotes.Include(v => v.User).Where(v => v.User.Email == username && v.QuestionID == model.QuestionID).ToDictionary(v => v.QuestionPostID);
             Dictionary<int, Dictionary<short, CommentVote>> commentVotes = new Dictionary<int, Dictionary<short, CommentVote>>();
-            Dictionary<string, RepVote> repVotes = _context.RepVotes.Where(v => v.VoterUser.Email == Request.HttpContext.User.Identity.Name && question.VisiblePosts.Any(p => p.UserID == v.VoteeUserID)).ToDictionary(v => v.VoteeUserID);
-            if (_context.Comments.Any())
+            Dictionary<string, RepVote> repVotes = _context.RepVotes.Include(v => v.VoterUser)
+                .Where(v => v.VoterUser.Email == Request.HttpContext.User.Identity.Name && question.VisiblePosts.Any(p => p.UserID == v.VoteeUserID)).ToDictionary(v => v.VoteeUserID);
+            if (_context.Comments.Any()) // Comments exist in the database
             {
-                foreach (QAPost post in question.VisiblePosts)
+                foreach (QAPost post in question.VisiblePosts) // Go through all the question's (visible) posts
                 {
                     Dictionary<short, CommentVote> postCommentVotes = new Dictionary<short, CommentVote>();
-                    if (post.VisibleComments.Any())
-                    {
+                    if (post.VisibleComments.Any()) // If the post has any visible posts, add the comment votes for the post's comments
                         postCommentVotes = _context.CommentVotes.Where(v => v.User.Email == Request.HttpContext.User.Identity.Name && v.QuestionID == model.QuestionID && v.QuestionPostID == post.QuestionPostID).ToDictionary(v => v.PostCommentID);
-                    }
                     commentVotes.Add(post.QuestionPostID, postCommentVotes);
                 }
             }
@@ -231,6 +236,8 @@ namespace CodeSynergy.Controllers
             return View(model);
         }
 
+        // Question grid loaded
+        // GET: /Question/QuestionGrid
         [HttpGet]
         public IActionResult QuestionGrid(string ColumnIndex = "-1", string SortAsc = "false", string UseSearchGrid = "false")
         {
@@ -254,6 +261,8 @@ namespace CodeSynergy.Controllers
             return PartialView("MvcGrid/_QuestionGrid", questionList);
         }
 
+        // Related questions grid loaded
+        // GET: /Question/RelatedQuestionGrid
         [HttpGet]
         public IActionResult RelatedQuestionGrid(string ColumnIndex = "-1", string SortAsc = "false", string UseSearchGrid = "false", string QuestionID = "1")
         {
@@ -281,6 +290,8 @@ namespace CodeSynergy.Controllers
             return PartialView("MvcGrid/_RelatedQuestionGrid", relatedQuestions);
         }
 
+        // Similar questions grid loaded
+        // GET: /Question/SimilarQuestionGrid
         [HttpGet]
         public IActionResult SimilarQuestionGrid(string ColumnIndex = "-1", string SortAsc = "false", string UseSearchGrid = "false", string QuestionID = "1")
         {
@@ -307,7 +318,7 @@ namespace CodeSynergy.Controllers
             return PartialView("MvcGrid/_SimilarQuestionGrid", similarQuestions);
         }
 
-        //
+        // Delete post POST request sent
         // POST: /Question/DeletePost
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -324,7 +335,6 @@ namespace CodeSynergy.Controllers
                 user.LastActivityDate = DateTime.Now;
                 if (post.QuestionPostID == 1)
                 {
-                    question.Summary = "[DELETED]";
                     question.LockedDate = DateTime.Now;
                     question.LockedByUserID = user.Id;
                     List<QuestionTag> questionTagList = _questionTags.GetAll().Where(qt => qt.QuestionID == question.QuestionID).ToList();
@@ -343,7 +353,7 @@ namespace CodeSynergy.Controllers
             return Json(new object[] { success, success ? question.AnswerCount.ToString() : errorMessage });
         }
 
-        //
+        // Delete comment POST request sent
         // POST: /Question/DeleteComment
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -367,7 +377,7 @@ namespace CodeSynergy.Controllers
             return Json(new object[] { success, success ? post.VisibleComments.Count().ToString() : errorMessage });
         }
 
-        //
+        // Add star POST request sent
         // POST: /Question/AddStar
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -382,9 +392,7 @@ namespace CodeSynergy.Controllers
             {
                 user.LastActivityDate = DateTime.Now;
                 if (!user.Stars.Any(u => u.QuestionID == question.QuestionID))
-                {
                     question.AddStar(_context, user);
-                }
                 success = true;
             }
             else
@@ -393,7 +401,7 @@ namespace CodeSynergy.Controllers
             return Json(new object[] { success, errorMessage });
         }
 
-        //
+        // Remove star POST request sent
         // POST: /Question/RemoveStar
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -407,16 +415,14 @@ namespace CodeSynergy.Controllers
             user.LastActivityDate = DateTime.Now;
 
             if (star != null)
-            {
                 question.RemoveStar(_context, star);
-            }
 
             success = true;
 
             return Json(new object[] { success });
         }
 
-        //
+        // Post vote POST request sent
         // POST: /Question/PostVote
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -439,14 +445,10 @@ namespace CodeSynergy.Controllers
                         post.UpdateVote(_context, postVote);
                     }
                     else
-                    {
                         post.RemoveVote(_context, postVote);
-                    }
                 }
                 else
-                {
                     post.AddVote(_context, user, vote);
-                }
                 success = true;
             } else
                 errorMessage = "You cannot vote on your own post!";
@@ -454,7 +456,7 @@ namespace CodeSynergy.Controllers
             return Json(new object[] { success, success ? post.Score.ToString() : errorMessage });
         }
 
-        //
+        // Comment vote POST request sent
         // POST: /Question/CommentVote
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -477,14 +479,10 @@ namespace CodeSynergy.Controllers
                         comment.UpdateVote(_context, commentVote);
                     }
                     else
-                    {
                         comment.RemoveVote(_context, commentVote);
-                    }
                 }
                 else
-                {
                     comment.AddVote(_context, user, vote);
-                }
                 success = true;
             }
             else
@@ -493,56 +491,63 @@ namespace CodeSynergy.Controllers
             return Json(new object[] { success, success ? comment.Score.ToString() : errorMessage });
         }
 
+        // Create question page loaded
+        // GET: /Question/Create
         [HttpGet]
         public IActionResult Create()
         {
+            // If the user is not logged in, redirect them to the homepage with a login modal
+            if (HttpContext.User.Identity.Name == null)
+                return Redirect("/?modal=Account/Login");
             return View();
         }
 
-        //
+        // Get tag for tag name POST request sent
         // POST: /Question/GetTagForTagName
         [HttpPost]
         public JsonResult GetTagForTagName(string tagName)
         {
-            Tag tag = _tags.Find(tagName);
+            Tag tag = _tags.Find(tagName); // Get the tag (if any) that matches the provided name
 
             return Json(new object[] { tag != null ? tag.TagID : 0, tag != null ? tag.TagName : tagName });
         }
 
+        // Create question POST request sent
+        // POST: /Question/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(PostQuestionViewModel model, string Modal)
         {
-            if (ModelState.IsValid)
+            if (ModelState.IsValid) // Question is valid
             {
                 ApplicationUser user = await _users.FindByEmailAsync(Request.HttpContext.User.Identity.Name);
-                Regex scriptPattern = new Regex("<\\s*script.*?>.*?(<\\s*\\/script.*?>|$)", RegexOptions.IgnoreCase);
-                Question question = new Question()
+                Regex scriptPattern = new Regex("<\\s*script.*?>.*?(<\\s*\\/script.*?>|$)", RegexOptions.IgnoreCase); // Regex pattern for script tags
+                Question question = new Question() // Create a new question
                 {
                     Summary = model.Summary = scriptPattern.Replace(model.Summary, "")
                 };
 
                 user.LastActivityDate = DateTime.Now;
 
-                _questions.Add(question);
+                _questions.Add(question); // Add the question to the database
 
-                question.AddPost(_context, user, scriptPattern.Replace(model.Contents, ""));
+                question.AddPost(_context, user, scriptPattern.Replace(model.Contents, "")); // Add the question post
 
+                // Go through each tag
                 for (int t = 0; t < model.Tags.Length; t++)
                 {
                     Tag tag = model.Tags[t];
+                    // Add the tag to the database if it is a new tag
                     if (tag.TagID == 0)
                     {
                         Tag tagByName = _tags.Find(tag.TagName);
                         if (tagByName == null)
-                        {
                             _tags.Add(tag);
-                        } else
-                        {
+                        else
                             tag = tagByName;
-                        }
                     }
 
+                    // Add a question tag for the tag
                     _questionTags.Add(new QuestionTag()
                     {
                         QuestionID = question.QuestionID,
@@ -559,7 +564,7 @@ namespace CodeSynergy.Controllers
             return View(model);
         }
 
-        //
+        // Post question tags POST request sent
         // POST: /Question/PostQuestionTags
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -572,11 +577,11 @@ namespace CodeSynergy.Controllers
 
             user.LastActivityDate = DateTime.Now;
 
-            for (int t = 0; t < Tags.Length; t++)
+            for (int t = 0; t < Tags.Length; t++) // For each tag in the request's tag array
             {
                 Tag tag = Tags[t];
                 bool isNewTag = false;
-                if (tag.TagID == 0)
+                if (tag.TagID == 0) // If the tag doesn't exist in the database yet, add it
                 {
                     Tag tagByName = _tags.Find(tag.TagName);
                     if (tagByName == null)
@@ -585,12 +590,10 @@ namespace CodeSynergy.Controllers
                         isNewTag = true;
                     }
                     else
-                    {
                         tag = tagByName;
-                    }
                 }
 
-                if (isNewTag || !questionTags.Any(qt => qt.TagID == tag.TagID))
+                if (isNewTag || !questionTags.Any(qt => qt.TagID == tag.TagID)) // If the tag is a new tag to the question, add a question tag for it
                 {
                     _questionTags.Add(new QuestionTag()
                     {
@@ -600,18 +603,18 @@ namespace CodeSynergy.Controllers
                 }
             }
 
-            for (int qt = 0; qt < questionTags.Count(); qt++)
+            for (int qt = 0; qt < questionTags.Count(); qt++) // For each question tag for the question
             {
                 QuestionTag questionTag = questionTags[qt];
-                if (!Tags.Any(t => t.TagID == questionTag.TagID))
-                {
+                if (!Tags.Any(t => t.TagID == questionTag.TagID)) // If the question tag is for a tag that is no longer used on this question, remove its question tag
                     _questionTags.Remove(questionTag);
-                }
             }
 
             return Json(new object[] { true, Tags.ToArray() });
         }
 
+        // Related questions modal loaded
+        // GET: /Question/RelatedQuestions/Id
         [HttpGet]
         public IActionResult RelatedQuestions(int Id)
         {
@@ -619,6 +622,8 @@ namespace CodeSynergy.Controllers
             return View(question);
         }
 
+        // Similar questions page loaded
+        // GET: /Question/SimilarQuestions/Id
         [HttpGet]
         public IActionResult SimilarQuestions(int Id)
         {

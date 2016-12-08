@@ -257,7 +257,7 @@
         window.clearTimeout(timeoutTimer);
         if ($("#modal > div#modal-content").children().length > 0) {
             if (successful)
-                $("#modal").attr("data-refresh-path", null)
+                $("#modal").attr("data-refresh-path", null);
             $('<span class="close-modal" style="float: right"><i class="fa fa-3x fa-times-circle blue hover-green" data-toggle="modal" data-target="#modal"></i></span>')
                 .appendTo("#modal > div#modal-header > div");
             $("#modal").off("click");

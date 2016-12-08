@@ -38,6 +38,10 @@ img#profile-image {
     padding-left: 0.5em;
 }
 
+#profile-message > p {
+    display: inline;
+}
+
 .btn-upvote {
     color: #40b040;
 }

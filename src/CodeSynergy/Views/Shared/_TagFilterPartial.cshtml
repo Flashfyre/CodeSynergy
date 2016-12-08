@@ -1,7 +1,7 @@
 @model TagInputViewModel
 
 <script type="text/javascript">
-    var TagFilter = (function () {
+    var TagFilter = (function () { // Grid.Mvc custom tag filter
         function TagFilter() {
         }
 
@@ -60,9 +60,8 @@
                     column.filter.first.type = popup.find('.first-filter .mvc-grid-type').val();
 
                     for (t = 0; t < $tagContainer.children("span").length; t++) {
-                        if ($tagContainer.children("input[name='Tags[" + t + "].TagID']").length != 0) {
+                        if ($tagContainer.children("input[name='Tags[" + t + "].TagID']").length != 0)
                             tagIds.push($tagContainer.children("input[name='Tags[" + t + "].TagID']").val());
-                        }
                     }
 
                     tagIds.sort();

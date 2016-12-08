@@ -14,7 +14,7 @@ namespace CodeSynergy.Helpers
 
             DateTime dt = (DateTime) dateTime;
             string output;
-            DateTime now = DateTime.Now;
+            DateTime now = DateTime.Now.ToUniversalTime();
             TimeSpan timeSpan = now.Subtract(dt);
             const int daysInYear = 365;
             const float avgDaysInMonth = 30.4166666667f;

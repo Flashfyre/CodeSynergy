@@ -162,7 +162,7 @@ namespace CodeSynergy.Models
         {
             get
             {
-                return UndeletedPosts.Count - 1;
+                return Math.Max(UndeletedPosts.Count - 1, 0);
             }
         }
         [NotMapped]

@@ -10,7 +10,7 @@
 {
     <div id="main-menu" style="visibility: hidden">
         <ul>
-            @if (User.IsInRole("Administrator") || User.IsInRole("Moderator"))
+            @if (User.IsInRole("Administrator") || User.IsInRole("Moderator")) // Show moderation modal link if the user is a moderator or adminstrator
             {
                 <li class="main-menu-item">
                     <a class="list-group-item blue hover-green" href="javascript:void(0)" aria-hidden="true" data-path="Admin/Moderation">
@@ -33,7 +33,7 @@
                     <i class="fa fa-lg fa-trophy"></i><span>User Rankings</span>
                 </a>
             </li>
-            @if (User.IsInRole("Administrator"))
+            @if (User.IsInRole("Administrator")) // Show user roles modal link if the user is an administrator
             {
                 <li class="main-menu-item">
                     <a class="list-group-item blue hover-green" href="javascript:void(0)" aria-hidden="true" data-path="Admin/UserRoles">
